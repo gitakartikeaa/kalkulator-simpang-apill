@@ -74,7 +74,17 @@ def hitung_konversi_smp(data_input, custom_emp_map):
     return pd.DataFrame(rows)
 
 
-def hitung_kinerja_lengkap(data_input, custom_emp_map, fase, w_MS, w_K, F_UK, override_wH=None, override_L=None, override_FUK=None):
+def hitung_kinerja_lengkap(
+    data_input,
+    custom_emp_map,
+    fase,
+    w_MS,
+    w_K,
+    F_UK,
+    override_wH=None,
+    override_L=None,
+    override_FUK=None,
+):
     """Menghitung seluruh parameter kinerja simpang APILL hingga LOS."""
     f_uk_aktif = override_FUK if override_FUK is not None else F_UK
 
@@ -263,8 +273,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
         )
 
     elif nama_rumus == "Tundaan Rata-Rata (T_total)":
-        rasio_h = (det["w_H"] / det["c_s"]) if det["c_s"] > 0 else 0
-        penj = max(0.05, 1.0 - min(0.95, det["DJ"] * rasio_h))
         st.latex(r"T_{LL} = \frac{0{,}5 \times c_s \times (1 - w_H/c_s)^2}{1 - \min(1;\ DJ \cdot w_H/c_s)} + \frac{NQ_1 \times 3600}{C}")
         st.latex(r"T_G = (1 - RKH) \times 4 + RKH \times 6 \qquad ; \qquad T_{\text{total}} = T_{LL} + T_G")
         st.code(
@@ -349,7 +357,6 @@ if not st.session_state.identitas_tersimpan:
 else:
     identitas = st.session_state.data_identitas
 
-    # Header Halaman 2 + Tombol Ubah Identitas
     c_h1, c_h2 = st.columns([5, 1])
     with c_h1:
         st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
@@ -369,7 +376,6 @@ else:
         f"**Surveyor:** {identitas['surveyor']}"
     )
 
-    # Pilihan 4 Mode di Bagian Atas Halaman 2
     mode_pilihan = st.radio(
         "Pilih Mode Analisis:",
         [
@@ -422,7 +428,6 @@ else:
                 "MP": mp, "KB": kb, "SM": sm, "KTB": ktb
             }
 
-    # Pengaturan eMP (Default PKJI + Bisa Diubah Sendiri)
     st.sidebar.subheader("3. Pengaturan Nilai eMP")
     gunakan_emp_custom = st.sidebar.checkbox("Ubah nilai eMP secara mandiri (Custom)", value=False)
     custom_emp_map = {}
@@ -439,7 +444,6 @@ else:
         else:
             custom_emp_map[p] = default_emp
 
-    # Hitung baseline pertama & simpan jika belum ada
     df_awal, c_s_awal, w_hh_awal, detail_awal = hitung_kinerja_lengkap(
         data_input, custom_emp_map, fase, w_MS, w_K, F_UK
     )
@@ -469,22 +473,19 @@ else:
     elif mode_pilihan == "Mode 2: Perhitungan Lengkap & LOS":
         st.subheader("📊 Mode 2 — Tabel Perhitungan Kinerja Simpang Lengkap (Hingga LOS)")
 
-        # Simpan sebagai hasil hitungan pertama jika tombol ditekan
-        col_btn1, col_btn2 = st.columns([3, 1])
+        _, col_btn2 = st.columns([3, 1])
         with col_btn2:
             if st.button("📌 Jadikan Hitungan Pertama (Mode 3)", use_container_width=True):
                 st.session_state.hasil_pertama_df = df_awal.copy()
                 st.session_state.hasil_pertama_detail = detail_awal
                 st.success("Hasil hitungan pertama berhasil diperbarui untuk Mode 3.")
 
-        # Ringkasan KPI
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Rata-rata DJ", f"{df_awal['DJ'].mean():.3f}")
         k2.metric("Max Panjang Antrian", f"{df_awal['PA (m)'].max():.1f} m")
         k3.metric("Rata-rata Tundaan", f"{df_awal['Tundaan (s/smp)'].mean():.2f} s/smp")
         k4.metric("LOS Terburuk", f"{df_awal['LOS'].max()}")
 
-        # Tabel Perhitungan Lengkap (diurutkan sesuai standar LOS: A paling baik, F paling buruk)
         st.markdown("### 📋 Tabel Rekapitulasi Perhitungan Simpang")
         styled_df = df_awal.style.format({
             "L_E (m)": "{:.2f}",
@@ -502,7 +503,6 @@ else:
         })
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
-        # Interaksi Rumus: setiap rumus yang dipencet memunculkan Rumus -> Masukkan Angka -> Hasil Akhir
         st.markdown("### 📐 Cek Detail Rumus per Perhitungan (Klik Tombol Rumus)")
         pendekat_aktif = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Angka:", pendekat_list)
 
@@ -529,7 +529,6 @@ else:
         det_pilihan["pendekat_label"] = f"Pendekat {pendekat_aktif}"
         tampilkan_detail_rumus(st.session_state.rumus_terpilih, det_pilihan)
 
-        # Grafik Visualisasi
         st.markdown("### 📈 Grafik Perbandingan Kinerja per Pendekat")
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
         colors = ["#e74c3c" if x > 0.85 else "#2b6cb0" for x in df_awal["DJ"]]
@@ -547,7 +546,6 @@ else:
         plt.tight_layout()
         st.pyplot(fig)
 
-        # Penjelasan Hasil Perhitungan & Evaluasi di Bagian Bawah
         st.markdown("### 📝 Penjelasan Hasil Perhitungan & Evaluasi Teknis")
         pendekat_kritis = df_awal[df_awal["DJ"] > 0.85]["Pendekat"].tolist()
         rata_dj = df_awal["DJ"].mean()
@@ -555,14 +553,20 @@ else:
         max_pa = df_awal["PA (m)"].max()
         pendekat_max_pa = df_awal.loc[df_awal["PA (m)"].idxmax(), "Pendekat"]
 
-        st.markdown(f"""
-        * **Kapasitas & Derajat Kejenuhan (DJ):** Waktu siklus estimasi saat ini adalah **{c_s_awal:.1f} detik** (waktu hilang total **{w_hh_awal:.1f} detik**). Rata-rata derajat kejenuhan simpang sebesar **{rata_dj:.3f}**. Menurut pedoman PKJI, nilai $DJ \\le 0{,}85$ menunjukkan kondisi operasional yang masih dapat ditoleransi.
-        * **Panjang Antrian & Tundaan:** Panjang antrian tertinggi terjadi pada **Pendekat {pendekat_max_pa}** sebesar **{max_pa:.1f} m**, dengan rata-rata tundaan simpang **{rata_tundaan:.2f} detik/smp**.
-        * **Evaluasi & Rekomendasi Perbaikan:**
-          {"⚠️ Terdapat pendekat dengan nilai **DJ > 0,85** yaitu: **" + ", ".join(pendekat_kritis) + "**. Evaluasi yang dapat dilakukan antara lain: (1) menyesuaikan alokasi waktu hijau ($w_H$) proporsional terhadap rasio arus/kapasitas, (2) meninjau pengaturan fase sinyal atau pembatasan BKiJT bila mengganggu antrian, atau (3) mengevaluasi pelebaran lebar efektif pendekat ($L_E$) bila secara geometrik memungkinkan." if pendekat_kritis else "✅ Seluruh pendekat memiliki nilai **DJ ≤ 0,85**, sehingga kapasitas pendekat masih mampu melayani arus lalu lintas eksisting. Evaluasi tetap disarankan untuk memantau tundaan dan panjang antrian pada jam puncak serta menguji alternatif pengaturan waktu sinyal pada **Mode 3**."}
-        """)
+        teks_rekomendasi = (
+            "⚠️ Terdapat pendekat dengan nilai **DJ > 0,85** yaitu: **"
+            + ", ".join(pendekat_kritis)
+            + "**. Evaluasi yang dapat dilakukan antara lain: (1) menyesuaikan alokasi waktu hijau (w_H) proporsional terhadap rasio arus/kapasitas, (2) meninjau pengaturan fase sinyal atau pembatasan BKiJT bila mengganggu antrian, atau (3) mengevaluasi pelebaran lebar efektif pendekat (L_E) bila secara geometrik memungkinkan."
+            if pendekat_kritis
+            else "✅ Seluruh pendekat memiliki nilai **DJ ≤ 0,85**, sehingga kapasitas pendekat masih mampu melayani arus lalu lintas eksisting. Evaluasi tetap disarankan untuk memantau tundaan dan panjang antrian pada jam puncak serta menguji alternatif pengaturan waktu sinyal pada **Mode 3**."
+        )
 
-        # Download Excel (.xlsx)
+        st.markdown(
+            f"* **Kapasitas & Derajat Kejenuhan (DJ):** Waktu siklus estimasi saat ini adalah **{c_s_awal:.1f} detik** (waktu hilang total **{w_hh_awal:.1f} detik**). Rata-rata derajat kejenuhan simpang sebesar **{rata_dj:.3f}**. Menurut pedoman PKJI, nilai **DJ ≤ 0,85** menunjukkan kondisi operasional yang masih dapat ditoleransi.\n"
+            f"* **Panjang Antrian & Tundaan:** Panjang antrian tertinggi terjadi pada **Pendekat {pendekat_max_pa}** sebesar **{max_pa:.1f} m**, dengan rata-rata tundaan simpang **{rata_tundaan:.2f} detik/smp**.\n"
+            f"* **Evaluasi & Rekomendasi Perbaikan:** {teks_rekomendasi}"
+        )
+
         st.markdown("### 📥 Unduh Laporan Excel")
         df_identitas_excel = pd.DataFrame({
             "Parameter": [
