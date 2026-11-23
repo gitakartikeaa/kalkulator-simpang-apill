@@ -182,7 +182,7 @@ def terapkan_tema(is_dark: bool):
             border-right: 2px solid {palet['border']} !important;
         }}
 
-        /* Seluruh teks utama & label (kecuali badge agar warna badge tidak tertimpa) */
+        /* Seluruh teks utama & label (kecuali badge & delta metric agar tidak tertimpa) */
         .stApp p, .stApp label, .stApp li,
         [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
         [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
@@ -191,8 +191,21 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stExpander"] summary span, [data-testid="stExpander"] summary p {{
             color: {palet['text_main']} !important;
         }}
-        .stApp span:not(.badge) {{
+        .stApp span:not(.badge):not([data-testid="stMetricDelta"] span) {{
             color: {palet['text_main']} !important;
+        }}
+
+        /* Pil Delta pada st.metric agar kontras & jelas di mode terang maupun gelap */
+        [data-testid="stMetricDelta"] {{
+            background-color: #E2E8F0 !important;
+            border-radius: 999px !important;
+            padding: 2px 10px !important;
+            width: fit-content !important;
+        }}
+        [data-testid="stMetricDelta"] span, [data-testid="stMetricDelta"] svg {{
+            color: #0F172A !important;
+            fill: #0F172A !important;
+            font-weight: 800 !important;
         }}
 
         /* Placeholder input */
@@ -367,7 +380,7 @@ def terapkan_tema(is_dark: bool):
             padding-left: 14px;
         }}
 
-        /* Badge Status & LOS (spesifisitas tinggi agar kontras di Terang & Gelap) */
+        /* Badge Status & LOS */
         span.badge {{
             display: inline-block;
             padding: 3px 10px;
@@ -577,7 +590,6 @@ def hitung_kinerja_lengkap(
 
 
 def hitung_rekomendasi_pkji(detail_awal, target_dj=0.85):
-    """Menghitung usulan w_H & L_E berdasarkan prinsip PKJI agar DJ <= target_dj."""
     rekom_rows = []
     for p in PENDEKAT_LIST:
         det = detail_awal[p]
@@ -585,18 +597,14 @@ def hitung_rekomendasi_pkji(detail_awal, target_dj=0.85):
         J = det["J"]
         c_s = det["c_s"]
         w_H_awal = det["w_H"]
-        L_awal = det["L"]
         L_BK = det["L_BKiJT"]
         L_E_awal = det["L_E"]
         DJ_awal = det["DJ"]
 
-        # 1) Rumus w_H agar DJ <= target_dj: C_perlu = Q / target_dj -> w_H_perlu = (C_perlu / J) * c_s
         C_perlu = Q / target_dj if target_dj > 0 else Q
         w_H_perlu = ((C_perlu / J) * c_s) if J > 0 else w_H_awal
         w_H_usulan = max(5.0, round(w_H_perlu, 1))
 
-        # 2) Rumus L_E agar DJ <= target_dj dengan w_H eksisting:
-        # C = 600 * L_E * F_UK * (w_H / c_s) >= Q / target_dj
         rasio_h = (w_H_awal / c_s) if c_s > 0 else 0.0
         penyebut_le = 600.0 * det["F_UK"] * rasio_h
         L_E_perlu = (C_perlu / penyebut_le) if penyebut_le > 0 else L_E_awal
@@ -1249,6 +1257,7 @@ else:
         st.caption("Atur parameter evaluasi per pendekat dan tinjau perhitungan perbaikan menurut rumus PKJI.")
 
         df_pertama = st.session_state.hasil_pertama_df.copy()
+        df_rekom = hitung_rekomendasi_pkji(detail_awal, target_dj=0.85)
 
         if "eval_wh_map" not in st.session_state:
             st.session_state.eval_wh_map = {p: float(data_input[p]["w_H"]) for p in PENDEKAT_LIST}
@@ -1257,32 +1266,53 @@ else:
         if "eval_bk_map" not in st.session_state:
             st.session_state.eval_bk_map = {p: float(data_input[p]["L_BKiJT"]) for p in PENDEKAT_LIST}
 
-        st.markdown("#### 1. Preset & Pengaturan Parameter Evaluasi")
-        p_col1, p_col2, p_col3 = st.columns([2, 2, 1])
+        for p in PENDEKAT_LIST:
+            st.session_state.setdefault(f"ev_wh_{p}", float(st.session_state.eval_wh_map[p]))
+            st.session_state.setdefault(f"ev_l_{p}", float(st.session_state.eval_l_map[p]))
+            st.session_state.setdefault(f"ev_bk_{p}", float(st.session_state.eval_bk_map[p]))
 
+        st.markdown("#### 1. Preset & Pengaturan Parameter Evaluasi")
+        p_col1, p_col2, p_col3, p_col4 = st.columns([2, 2, 2, 1])
         pendekat_dj_max = df_pertama.loc[df_pertama["DJ"].idxmax(), "Pendekat"]
 
         with p_col1:
-            if st.button(f"➕ Hijau +5s Pendekat DJ Tertinggi ({pendekat_dj_max})", use_container_width=True):
-                st.session_state.eval_wh_map[pendekat_dj_max] = round(st.session_state.eval_wh_map[pendekat_dj_max] + 5.0, 1)
-                for p in PENDEKAT_LIST:
-                    st.session_state[f"ev_wh_{p}"] = st.session_state.eval_wh_map[p]
+            if st.button(f"➕ Hijau +5s ({pendekat_dj_max})", key="pre_wh_max", use_container_width=True):
+                baru = round(float(st.session_state[f"ev_wh_{pendekat_dj_max}"]) + 5.0, 1)
+                st.session_state.eval_wh_map[pendekat_dj_max] = baru
+                st.session_state[f"ev_wh_{pendekat_dj_max}"] = baru
                 st.rerun()
+
         with p_col2:
-            if st.button(f"📐 Lebar +1,0m Pendekat DJ Tertinggi ({pendekat_dj_max})", use_container_width=True):
-                st.session_state.eval_l_map[pendekat_dj_max] = round(st.session_state.eval_l_map[pendekat_dj_max] + 1.0, 2)
-                for p in PENDEKAT_LIST:
-                    st.session_state[f"ev_l_{p}"] = st.session_state.eval_l_map[p]
+            if st.button(f"📐 Lebar +1,0m ({pendekat_dj_max})", key="pre_l_max", use_container_width=True):
+                baru = round(float(st.session_state[f"ev_l_{pendekat_dj_max}"]) + 1.0, 2)
+                st.session_state.eval_l_map[pendekat_dj_max] = baru
+                st.session_state[f"ev_l_{pendekat_dj_max}"] = baru
                 st.rerun()
+
         with p_col3:
-            if st.button("🔄 Reset", use_container_width=True):
+            if st.button("✨ Terapkan Rekomendasi PKJI", key="btn_terapkan_rekom_atas", use_container_width=True):
+                for _, r_row in df_rekom.iterrows():
+                    p_name = r_row["Pendekat"]
+                    wh_rek = float(r_row["w_H Rekomendasi (s)"])
+                    l_rek = float(r_row["L Rekomendasi (m)"])
+                    st.session_state.eval_wh_map[p_name] = wh_rek
+                    st.session_state.eval_l_map[p_name] = l_rek
+                    st.session_state[f"ev_wh_{p_name}"] = wh_rek
+                    st.session_state[f"ev_l_{p_name}"] = l_rek
+                st.rerun()
+
+        with p_col4:
+            if st.button("🔄 Reset", key="pre_reset_ev", use_container_width=True):
                 for p in PENDEKAT_LIST:
-                    st.session_state.eval_wh_map[p] = float(data_input[p]["w_H"])
-                    st.session_state.eval_l_map[p] = float(data_input[p]["L"])
-                    st.session_state.eval_bk_map[p] = float(data_input[p]["L_BKiJT"])
-                    st.session_state[f"ev_wh_{p}"] = float(data_input[p]["w_H"])
-                    st.session_state[f"ev_l_{p}"] = float(data_input[p]["L"])
-                    st.session_state[f"ev_bk_{p}"] = float(data_input[p]["L_BKiJT"])
+                    wh_0 = float(data_input[p]["w_H"])
+                    l_0 = float(data_input[p]["L"])
+                    bk_0 = float(data_input[p]["L_BKiJT"])
+                    st.session_state.eval_wh_map[p] = wh_0
+                    st.session_state.eval_l_map[p] = l_0
+                    st.session_state.eval_bk_map[p] = bk_0
+                    st.session_state[f"ev_wh_{p}"] = wh_0
+                    st.session_state[f"ev_l_{p}"] = l_0
+                    st.session_state[f"ev_bk_{p}"] = bk_0
                 st.rerun()
 
         cols_p = st.columns(4)
@@ -1292,19 +1322,16 @@ else:
                 wh_val = st.number_input(
                     f"Waktu Hijau w_H (s) [{p}]",
                     min_value=5.0, max_value=120.0,
-                    value=float(st.session_state.eval_wh_map.get(p, data_input[p]["w_H"])),
                     step=1.0, key=f"ev_wh_{p}"
                 )
                 l_val = st.number_input(
                     f"Lebar Pendekat L (m) [{p}]",
                     min_value=2.0, max_value=30.0,
-                    value=float(st.session_state.eval_l_map.get(p, data_input[p]["L"])),
                     step=0.5, key=f"ev_l_{p}"
                 )
                 bk_val = st.number_input(
                     f"Lebar BKiJT (m) [{p}]",
                     min_value=0.0, max_value=15.0,
-                    value=float(st.session_state.eval_bk_map.get(p, data_input[p]["L_BKiJT"])),
                     step=0.5, key=f"ev_bk_{p}"
                 )
                 st.session_state.eval_wh_map[p] = wh_val
@@ -1328,7 +1355,7 @@ else:
             override_L=st.session_state.eval_l_map,
         )
 
-        tampilkan_semua_kolom = st.checkbox("Tampilkan semua kolom detail (16 kolom)", value=False)
+        tampilkan_semua_kolom = st.checkbox("Tampilkan semua kolom detail (16 kolom)", value=False, key="ev_semua_kolom")
 
         st.markdown("#### 2. Ringkasan Perubahan Kinerja")
         delta_dj = df_evaluasi["DJ"].mean() - df_pertama["DJ"].mean()
@@ -1392,15 +1419,11 @@ else:
                 format_cols=format_tabel_lengkap
             )
 
-        # ==========================================================
-        # FITUR TAMBAHAN MODE 3: PERBAIKAN & EVALUASI RUMUS PKJI
-        # ==========================================================
         st.markdown("#### 4. Perbaikan & Evaluasi Menurut Perhitungan PKJI dan Rumus")
         st.caption("Berdasarkan prinsip kapasitas PKJI (C = J × w_H / c_s dan DJ = Q / C ≤ 0,85), berikut perhitungan target perbaikan per pendekat:")
 
         st.latex(r"C_{\text{target}} = \frac{Q}{0{,}85} \qquad ; \qquad w_{H,\text{target}} = \frac{C_{\text{target}}}{J} \times c_s \qquad ; \qquad L_{E,\text{target}} = \frac{C_{\text{target}}}{600 \times F_{UK} \times (w_H / c_s)}")
 
-        df_rekom = hitung_rekomendasi_pkji(detail_awal, target_dj=0.85)
         render_tabel_cantik(
             df_rekom,
             format_cols={
@@ -1412,15 +1435,6 @@ else:
                 "L Rekomendasi (m)": "{:.2f}"
             }
         )
-
-        if st.button("✨ Terapkan Rekomendasi w_H & L PKJI ke Parameter Evaluasi", key="btn_terapkan_rekom_pkji"):
-            for _, r_row in df_rekom.iterrows():
-                p_name = r_row["Pendekat"]
-                st.session_state.eval_wh_map[p_name] = float(r_row["w_H Rekomendasi (s)"])
-                st.session_state.eval_l_map[p_name] = float(r_row["L Rekomendasi (m)"])
-                st.session_state[f"ev_wh_{p_name}"] = float(r_row["w_H Rekomendasi (s)"])
-                st.session_state[f"ev_l_{p_name}"] = float(r_row["L Rekomendasi (m)"])
-            st.rerun()
 
         pendekat_rumus_ev = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Rumus Perbaikan PKJI:", PENDEKAT_LIST, key="ev_rumus_p")
         det_ev = detail_awal[pendekat_rumus_ev]
