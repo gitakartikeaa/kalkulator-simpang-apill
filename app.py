@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import io
 import os
 import json
+import random
 import html as html_lib
 from datetime import date, datetime
 
@@ -19,6 +20,16 @@ st.set_page_config(
 
 HISTORY_FILE = ".pkji_history.json"
 PENDEKAT_LIST = ["Utara", "Selatan", "Timur", "Barat"]
+
+QUOTES_ANTI_BURNOUT = [
+    "Sinyal hijau pasti datang setelah fase merah dan kuning—istirahat sebentar bukan berarti menyerah, tarik napas lalu lanjutkan satu langkah lagi.",
+    "Derajat kejenuhan boleh tinggi di jam puncak, tapi kapasitas belajarmu selalu bisa diperluas pelan-pelan. Jangan lupa minum air dan regangkan badan.",
+    "Satu perhitungan yang selesai hari ini jauh lebih berharga daripada menuntut kesempurnaan sampai begadang tanpa henti.",
+    "Seperti simpang yang butuh waktu hilang agar pergerakan tertib, otakmu juga butuh jeda singkat supaya tetap jernih.",
+    "Angka dan rumus hanyalah alat bantu; ketekunanmu memahami prosesnya adalah bekal utama yang nggak akan sia-sia.",
+    "Kalau mulai pusing menatap layar dan tabel, menjauh 5 menit dari laptop lalu kembali dengan kepala dingin sering kali mempercepat segalanya.",
+    "Progres kecil yang konsisten mengalahkan kelelahan akibat memforsir diri sekaligus. Kamu sudah melangkah sejauh ini—keren!"
+]
 
 DEFAULT_IDENTITAS = {
     "nama_simpang": "",
@@ -59,6 +70,13 @@ def simpan_riwayat_disk(riwayat_list):
 
 
 # Inisialisasi Session State
+if "quote_sesi_ini" not in st.session_state:
+    # Pilih quote baru setiap kali sesi web dibuka ulang; hindari mengulang quote terakhir jika ada riwayat
+    riwayat_q = muat_riwayat_disk()
+    quote_terakhir = riwayat_q[-1].get("last_quote") if riwayat_q else None
+    kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_terakhir] or QUOTES_ANTI_BURNOUT
+    st.session_state.quote_sesi_ini = random.choice(kandidat)
+
 if "tema_gelap" not in st.session_state:
     st.session_state.tema_gelap = False
 
@@ -113,7 +131,7 @@ if "rumus_terpilih" not in st.session_state:
 
 
 # ==========================================
-# TEMA WARNA
+# TEMA WARNA & BACKGROUND TRANSPORTASI HALUS
 # Terang: Merino (#F5EEDD), Rock Blue (#84B3CE), Venice Blue (#16587B)
 # Gelap: Navy
 # ==========================================
@@ -124,6 +142,8 @@ def terapkan_tema(is_dark: bool):
             "bg_secondary": "#0E1A38",
             "bg_card": "#13234A",
             "bg_input": "#0B1633",
+            "bg_code": "#0F1E42",
+            "code_text": "#F5EEDD",
             "border": "#3B62A8",
             "primary": "#84B3CE",
             "primary_hover": "#679BB8",
@@ -141,7 +161,9 @@ def terapkan_tema(is_dark: bool):
             "table_hover": "#1D356B",
             "chart_bg": "#0E1A38",
             "chart_text": "#F5EEDD",
-            "chart_grid": "#2A4785"
+            "chart_grid": "#2A4785",
+            "road_line": "rgba(132, 179, 206, 0.045)",
+            "road_dash": "rgba(245, 238, 221, 0.04)"
         }
     else:
         palet = {
@@ -149,6 +171,8 @@ def terapkan_tema(is_dark: bool):
             "bg_secondary": "#84B3CE",
             "bg_card": "#FFFFFF",
             "bg_input": "#FFFFFF",
+            "bg_code": "#F8FAFC",
+            "code_text": "#0E3950",
             "border": "#16587B",
             "primary": "#16587B",
             "primary_hover": "#0F405A",
@@ -166,15 +190,28 @@ def terapkan_tema(is_dark: bool):
             "table_hover": "#CFE4F0",
             "chart_bg": "#FFFFFF",
             "chart_text": "#0E3950",
-            "chart_grid": "#9BBFD4"
+            "chart_grid": "#9BBFD4",
+            "road_line": "rgba(22, 88, 123, 0.05)",
+            "road_dash": "rgba(132, 179, 206, 0.14)"
         }
 
     st.markdown(
         f"""
         <style>
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+        /* Background utama dengan pola marka jalan & koridor transportasi yang sangat halus */
+        .stApp, [data-testid="stAppViewContainer"] {{
             background-color: {palet['bg_main']} !important;
+            background-image:
+                linear-gradient(90deg, transparent 49.5%, {palet['road_dash']} 49.5%, {palet['road_dash']} 50.5%, transparent 50.5%),
+                linear-gradient(0deg, transparent 49.5%, {palet['road_dash']} 49.5%, {palet['road_dash']} 50.5%, transparent 50.5%),
+                linear-gradient(to right, {palet['road_line']} 1px, transparent 1px),
+                linear-gradient(to bottom, {palet['road_line']} 1px, transparent 1px) !important;
+            background-size: 240px 240px, 240px 240px, 60px 60px, 60px 60px !important;
             color: {palet['text_main']} !important;
+        }}
+
+        [data-testid="stHeader"] {{
+            background-color: transparent !important;
         }}
 
         [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{
@@ -182,7 +219,7 @@ def terapkan_tema(is_dark: bool):
             border-right: 2px solid {palet['border']} !important;
         }}
 
-        /* Seluruh teks utama & label (kecuali badge & delta metric agar tidak tertimpa) */
+        /* Seluruh teks utama & label (kecuali badge, delta metric, dan blok kode agar tidak tertimpa) */
         .stApp p, .stApp label, .stApp li,
         [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
         [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
@@ -191,11 +228,23 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stExpander"] summary span, [data-testid="stExpander"] summary p {{
             color: {palet['text_main']} !important;
         }}
-        .stApp span:not(.badge):not([data-testid="stMetricDelta"] span) {{
+        .stApp span:not(.badge):not([data-testid="stMetricDelta"] span):not([data-testid="stCodeBlock"] span) {{
             color: {palet['text_main']} !important;
         }}
 
-        /* Pil Delta pada st.metric agar kontras & jelas di mode terang maupun gelap */
+        /* Blok st.code: kontras jelas di mode terang maupun gelap */
+        [data-testid="stCodeBlock"], [data-testid="stCodeBlock"] > div,
+        [data-testid="stCodeBlock"] pre, [data-testid="stCodeBlock"] code {{
+            background-color: {palet['bg_code']} !important;
+            color: {palet['code_text']} !important;
+            border: 1px solid {palet['border']} !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stCodeBlock"] span, [data-testid="stCodeBlock"] code * {{
+            color: {palet['code_text']} !important;
+        }}
+
+        /* Pil Delta pada st.metric */
         [data-testid="stMetricDelta"] {{
             background-color: #E2E8F0 !important;
             border-radius: 999px !important;
@@ -214,7 +263,7 @@ def terapkan_tema(is_dark: bool):
             opacity: 1 !important;
         }}
 
-        /* Semua kolom input: text_input, number_input, date_input, selectbox */
+        /* Semua kolom input & selectbox (hindari warna merah marun saat fokus/hover) */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
@@ -225,6 +274,11 @@ def terapkan_tema(is_dark: bool):
             background-color: {palet['bg_input']} !important;
             color: {palet['text_main']} !important;
             border-color: {palet['border']} !important;
+        }}
+        [data-baseweb="select"] > div:focus-within,
+        [data-baseweb="input"]:focus-within {{
+            border-color: {palet['primary']} !important;
+            box-shadow: 0 0 0 1px {palet['primary']} !important;
         }}
         [data-baseweb="select"] span, [data-baseweb="select"] div,
         [data-testid="stDateInput"] input {{
@@ -392,6 +446,21 @@ def terapkan_tema(is_dark: bool):
         span.badge-warn {{ background-color: #FEF3C7 !important; color: #78350F !important; border: 1px solid #FCD34D; }}
         span.badge-bad {{ background-color: #FEE2E2 !important; color: #7F1D1D !important; border: 1px solid #FCA5A5; }}
         span.badge-info {{ background-color: #DCECF5 !important; color: #0E3950 !important; border: 1px solid #84B3CE; }}
+
+        /* Kartu Motivasi Mode 4 */
+        .quote-box {{
+            background-color: {palet['bg_card']};
+            border: 1px solid {palet['border']};
+            border-left: 6px solid {palet['primary']};
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 12px;
+        }}
+        .quote-box p {{
+            color: {palet['text_main']} !important;
+            font-style: italic;
+            margin: 0;
+        }}
         </style>
         """,
         unsafe_allow_html=True
@@ -719,7 +788,8 @@ def catat_history(identitas_dict, sinyal_dict, pendekat_dict, emp_custom_dict):
         "identitas": dict(identitas_dict),
         "sinyal": dict(sinyal_dict),
         "pendekat": {p: dict(d) for p, d in pendekat_dict.items()},
-        "emp_custom": {p: dict(e) for p, e in emp_custom_dict.items()}
+        "emp_custom": {p: dict(e) for p, e in emp_custom_dict.items()},
+        "last_quote": st.session_state.quote_sesi_ini
     }
     st.session_state.riwayat_penggunaan.append(snapshot)
     st.session_state.riwayat_penggunaan = st.session_state.riwayat_penggunaan[-25:]
@@ -1523,3 +1593,13 @@ else:
             ]
         })
         render_tabel_cantik(df_los_ref)
+
+        # Motivasi Anti-Burnout di Bagian Paling Bawah Mode 4
+        st.markdown(
+            f"""
+            <div class="quote-box">
+                <p>🌱 <strong>Catatan Penyemangat:</strong> “{html_lib.escape(st.session_state.quote_sesi_ini)}”</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
