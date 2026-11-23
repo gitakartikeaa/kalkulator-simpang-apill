@@ -39,7 +39,6 @@ DEFAULT_INPUT = {
 
 
 def muat_riwayat_disk():
-    """Membaca riwayat penggunaan dari file JSON lokal jika ada."""
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -52,7 +51,6 @@ def muat_riwayat_disk():
 
 
 def simpan_riwayat_disk(riwayat_list):
-    """Menyimpan daftar riwayat ke file JSON lokal."""
     try:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             json.dump(riwayat_list[-25:], f, ensure_ascii=False, indent=2)
@@ -67,7 +65,6 @@ if "tema_gelap" not in st.session_state:
 if "riwayat_penggunaan" not in st.session_state:
     st.session_state.riwayat_penggunaan = muat_riwayat_disk()
 
-# Jika sudah ada riwayat sebelumnya, muat snapshot terakhir agar tidak perlu input ulang
 last_snap = st.session_state.riwayat_penggunaan[-1] if st.session_state.riwayat_penggunaan else None
 
 if "identitas_tersimpan" not in st.session_state:
@@ -126,13 +123,14 @@ def terapkan_tema(is_dark: bool):
             "bg_main": "#081024",
             "bg_secondary": "#0E1A38",
             "bg_card": "#13234A",
-            "bg_input": "#0A142E",
-            "border": "#264380",
+            "bg_input": "#0B1633",
+            "border": "#3B62A8",
             "primary": "#84B3CE",
             "primary_hover": "#679BB8",
             "primary_text": "#061026",
             "text_main": "#F5EEDD",
-            "text_muted": "#CBD5E1",
+            "text_muted": "#D8E6F3",
+            "placeholder": "#8FA7C7",
             "alert_bg": "#152B59",
             "alert_text": "#F5EEDD",
             "alert_border": "#84B3CE",
@@ -146,18 +144,18 @@ def terapkan_tema(is_dark: bool):
             "chart_grid": "#2A4785"
         }
     else:
-        # Merino: #F5EEDD | Rock Blue: #84B3CE | Venice Blue: #16587B
         palet = {
             "bg_main": "#F5EEDD",
             "bg_secondary": "#84B3CE",
             "bg_card": "#FFFFFF",
-            "bg_input": "#FCFBF7",
+            "bg_input": "#FFFFFF",
             "border": "#16587B",
             "primary": "#16587B",
             "primary_hover": "#0F405A",
             "primary_text": "#F5EEDD",
             "text_main": "#0E3950",
             "text_muted": "#16587B",
+            "placeholder": "#5C7E91",
             "alert_bg": "#DCECF5",
             "alert_text": "#0E3950",
             "alert_border": "#16587B",
@@ -184,8 +182,8 @@ def terapkan_tema(is_dark: bool):
             border-right: 2px solid {palet['border']} !important;
         }}
 
-        /* Seluruh teks utama & label */
-        .stApp p, .stApp span, .stApp label, .stApp li,
+        /* Seluruh teks utama & label (kecuali badge agar warna badge tidak tertimpa) */
+        .stApp p, .stApp label, .stApp li,
         [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
         [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
         [data-testid="stCaptionContainer"], .stCheckbox label p, .stRadio label p,
@@ -193,8 +191,44 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stExpander"] summary span, [data-testid="stExpander"] summary p {{
             color: {palet['text_main']} !important;
         }}
+        .stApp span:not(.badge) {{
+            color: {palet['text_main']} !important;
+        }}
 
-        /* Kotak Info / Warning / Success / Error agar kontras dan mudah dibaca */
+        /* Placeholder input */
+        input::placeholder, textarea::placeholder {{
+            color: {palet['placeholder']} !important;
+            opacity: 1 !important;
+        }}
+
+        /* Semua kolom input: text_input, number_input, date_input, selectbox */
+        [data-testid="stTextInput"] input,
+        [data-testid="stNumberInput"] input,
+        [data-testid="stDateInput"] input,
+        [data-testid="stDateInput"] > div > div,
+        [data-baseweb="input"], [data-baseweb="input"] > div,
+        [data-baseweb="select"], [data-baseweb="select"] > div,
+        [data-baseweb="select"] > div > div {{
+            background-color: {palet['bg_input']} !important;
+            color: {palet['text_main']} !important;
+            border-color: {palet['border']} !important;
+        }}
+        [data-baseweb="select"] span, [data-baseweb="select"] div,
+        [data-testid="stDateInput"] input {{
+            color: {palet['text_main']} !important;
+            -webkit-text-fill-color: {palet['text_main']} !important;
+        }}
+        [data-baseweb="popover"] ul, [data-baseweb="popover"] li, [role="listbox"] li {{
+            background-color: {palet['bg_card']} !important;
+            color: {palet['text_main']} !important;
+        }}
+        [data-testid="stNumberInput"] button {{
+            background-color: {palet['bg_card']} !important;
+            color: {palet['text_main']} !important;
+            border-color: {palet['border']} !important;
+        }}
+
+        /* Kotak Info / Warning / Success / Error */
         [data-testid="stAlert"], [data-testid="stAlert"] > div,
         [data-testid="stNotification"], [data-testid="stNotification"] > div {{
             background-color: {palet['alert_bg']} !important;
@@ -204,25 +238,6 @@ def terapkan_tema(is_dark: bool):
         }}
         [data-testid="stAlert"] p, [data-testid="stAlert"] span, [data-testid="stAlert"] div {{
             color: {palet['alert_text']} !important;
-        }}
-
-        /* Field Input */
-        [data-testid="stTextInput"] input,
-        [data-testid="stNumberInput"] input,
-        [data-testid="stDateInput"] input,
-        [data-baseweb="select"] > div {{
-            background-color: {palet['bg_input']} !important;
-            color: {palet['text_main']} !important;
-            border: 1px solid {palet['border']} !important;
-            border-radius: 8px !important;
-        }}
-        [data-baseweb="select"] span, [data-baseweb="select"] div {{
-            color: {palet['text_main']} !important;
-        }}
-        [data-testid="stNumberInput"] button {{
-            background-color: {palet['bg_card']} !important;
-            color: {palet['text_main']} !important;
-            border-color: {palet['border']} !important;
         }}
 
         /* Expander */
@@ -352,18 +367,18 @@ def terapkan_tema(is_dark: bool):
             padding-left: 14px;
         }}
 
-        /* Badge Status & LOS */
-        .badge {{
+        /* Badge Status & LOS (spesifisitas tinggi agar kontras di Terang & Gelap) */
+        span.badge {{
             display: inline-block;
             padding: 3px 10px;
             border-radius: 999px;
-            font-weight: 700;
+            font-weight: 800 !important;
             font-size: 0.80rem;
         }}
-        .badge-ok {{ background-color: #DCFCE7; color: #166534 !important; }}
-        .badge-warn {{ background-color: #FEF3C7; color: #92400E !important; }}
-        .badge-bad {{ background-color: #FEE2E2; color: #991B1B !important; }}
-        .badge-info {{ background-color: #DCECF5; color: #0E3950 !important; }}
+        span.badge-ok {{ background-color: #DCFCE7 !important; color: #14532D !important; border: 1px solid #86EFAC; }}
+        span.badge-warn {{ background-color: #FEF3C7 !important; color: #78350F !important; border: 1px solid #FCD34D; }}
+        span.badge-bad {{ background-color: #FEE2E2 !important; color: #7F1D1D !important; border: 1px solid #FCA5A5; }}
+        span.badge-info {{ background-color: #DCECF5 !important; color: #0E3950 !important; border: 1px solid #84B3CE; }}
         </style>
         """,
         unsafe_allow_html=True
@@ -561,6 +576,50 @@ def hitung_kinerja_lengkap(
     return pd.DataFrame(tabel_rows), c_s, W_HH, detail_per_pendekat
 
 
+def hitung_rekomendasi_pkji(detail_awal, target_dj=0.85):
+    """Menghitung usulan w_H & L_E berdasarkan prinsip PKJI agar DJ <= target_dj."""
+    rekom_rows = []
+    for p in PENDEKAT_LIST:
+        det = detail_awal[p]
+        Q = det["Q_smp"]
+        J = det["J"]
+        c_s = det["c_s"]
+        w_H_awal = det["w_H"]
+        L_awal = det["L"]
+        L_BK = det["L_BKiJT"]
+        L_E_awal = det["L_E"]
+        DJ_awal = det["DJ"]
+
+        # 1) Rumus w_H agar DJ <= target_dj: C_perlu = Q / target_dj -> w_H_perlu = (C_perlu / J) * c_s
+        C_perlu = Q / target_dj if target_dj > 0 else Q
+        w_H_perlu = ((C_perlu / J) * c_s) if J > 0 else w_H_awal
+        w_H_usulan = max(5.0, round(w_H_perlu, 1))
+
+        # 2) Rumus L_E agar DJ <= target_dj dengan w_H eksisting:
+        # C = 600 * L_E * F_UK * (w_H / c_s) >= Q / target_dj
+        rasio_h = (w_H_awal / c_s) if c_s > 0 else 0.0
+        penyebut_le = 600.0 * det["F_UK"] * rasio_h
+        L_E_perlu = (C_perlu / penyebut_le) if penyebut_le > 0 else L_E_awal
+        L_usulan = max(2.0, round(L_E_perlu + L_BK, 2))
+
+        if DJ_awal > target_dj:
+            tindakan = f"Perlu perbaikan: naikkan w_H ke ~{w_H_usulan:.1f} s atau L ke ~{L_usulan:.2f} m"
+        else:
+            tindakan = f"Sudah memenuhi batas DJ ≤ {target_dj:.2f}"
+
+        rekom_rows.append({
+            "Pendekat": p,
+            "Q (smp/jam)": round(Q, 1),
+            "DJ Awal": round(DJ_awal, 3),
+            "w_H Awal (s)": round(w_H_awal, 1),
+            "w_H Rekomendasi (s)": w_H_usulan,
+            "L_E Awal (m)": round(L_E_awal, 2),
+            "L Rekomendasi (m)": L_usulan,
+            "Evaluasi & Saran PKJI": tindakan
+        })
+    return pd.DataFrame(rekom_rows)
+
+
 def tampilkan_detail_rumus(nama_rumus, det):
     p_nama = det.get("pendekat_label", "Pendekat")
     st.markdown(f"#### 🧮 Rincian Perhitungan: **{nama_rumus}** ({p_nama})")
@@ -645,7 +704,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
 
 
 def catat_history(identitas_dict, sinyal_dict, pendekat_dict, emp_custom_dict):
-    """Menyimpan snapshot penggunaan terbaru ke session_state dan disk."""
     label_simpang = identitas_dict.get("nama_simpang") or "Simpang Tanpa Nama"
     label_waktu = datetime.now().strftime("%d/%m %H:%M")
     snapshot = {
@@ -661,7 +719,6 @@ def catat_history(identitas_dict, sinyal_dict, pendekat_dict, emp_custom_dict):
 
 
 def terapkan_snapshot(snap):
-    """Memuat kembali snapshot history ke session_state."""
     id_new = dict(DEFAULT_IDENTITAS)
     id_new.update(snap.get("identitas", {}))
     st.session_state.data_identitas = id_new
@@ -914,7 +971,6 @@ else:
     else:
         st.session_state.emp_custom_tersimpan = {}
 
-    # Hitung baseline & data untuk ekspor Excel lintas mode
     df_awal, c_s_awal, w_hh_awal, detail_awal = hitung_kinerja_lengkap(
         data_input, custom_emp_map, fase, w_MS, w_K, F_UK
     )
@@ -1186,11 +1242,11 @@ else:
         )
 
     # ==========================================================
-    # MODE 3: PERBANDINGAN TABEL HASIL PERTAMA & TABEL EVALUASI
+    # MODE 3: PERBANDINGAN + PERBAIKAN & EVALUASI RUMUS PKJI
     # ==========================================================
     elif mode_pilihan == "Mode 3: Perbandingan & Evaluasi":
         st.subheader("⚖️ Mode 3 — Perbandingan Hasil Hitungan Pertama & Evaluasi")
-        st.caption("Atur parameter evaluasi per pendekat agar lebih sesuai dengan kondisi simpang dan opsi perbaikan yang realistis.")
+        st.caption("Atur parameter evaluasi per pendekat dan tinjau perhitungan perbaikan menurut rumus PKJI.")
 
         df_pertama = st.session_state.hasil_pertama_df.copy()
 
@@ -1336,7 +1392,52 @@ else:
                 format_cols=format_tabel_lengkap
             )
 
-        st.markdown("#### 4. Penjelasan & Masukan Evaluasi")
+        # ==========================================================
+        # FITUR TAMBAHAN MODE 3: PERBAIKAN & EVALUASI RUMUS PKJI
+        # ==========================================================
+        st.markdown("#### 4. Perbaikan & Evaluasi Menurut Perhitungan PKJI dan Rumus")
+        st.caption("Berdasarkan prinsip kapasitas PKJI (C = J × w_H / c_s dan DJ = Q / C ≤ 0,85), berikut perhitungan target perbaikan per pendekat:")
+
+        st.latex(r"C_{\text{target}} = \frac{Q}{0{,}85} \qquad ; \qquad w_{H,\text{target}} = \frac{C_{\text{target}}}{J} \times c_s \qquad ; \qquad L_{E,\text{target}} = \frac{C_{\text{target}}}{600 \times F_{UK} \times (w_H / c_s)}")
+
+        df_rekom = hitung_rekomendasi_pkji(detail_awal, target_dj=0.85)
+        render_tabel_cantik(
+            df_rekom,
+            format_cols={
+                "Q (smp/jam)": "{:,.1f}",
+                "DJ Awal": "{:.3f}",
+                "w_H Awal (s)": "{:.1f}",
+                "w_H Rekomendasi (s)": "{:.1f}",
+                "L_E Awal (m)": "{:.2f}",
+                "L Rekomendasi (m)": "{:.2f}"
+            }
+        )
+
+        if st.button("✨ Terapkan Rekomendasi w_H & L PKJI ke Parameter Evaluasi", key="btn_terapkan_rekom_pkji"):
+            for _, r_row in df_rekom.iterrows():
+                p_name = r_row["Pendekat"]
+                st.session_state.eval_wh_map[p_name] = float(r_row["w_H Rekomendasi (s)"])
+                st.session_state.eval_l_map[p_name] = float(r_row["L Rekomendasi (m)"])
+                st.session_state[f"ev_wh_{p_name}"] = float(r_row["w_H Rekomendasi (s)"])
+                st.session_state[f"ev_l_{p_name}"] = float(r_row["L Rekomendasi (m)"])
+            st.rerun()
+
+        pendekat_rumus_ev = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Rumus Perbaikan PKJI:", PENDEKAT_LIST, key="ev_rumus_p")
+        det_ev = detail_awal[pendekat_rumus_ev]
+        c_targ = det_ev["Q_smp"] / 0.85
+        wh_targ = ((c_targ / det_ev["J"]) * det_ev["c_s"]) if det_ev["J"] > 0 else det_ev["w_H"]
+        ras_h_ev = (det_ev["w_H"] / det_ev["c_s"]) if det_ev["c_s"] > 0 else 0.0
+        penj_le_ev = 600.0 * det_ev["F_UK"] * ras_h_ev
+        le_targ = (c_targ / penj_le_ev) if penj_le_ev > 0 else det_ev["L_E"]
+
+        st.code(
+            f"[{pendekat_rumus_ev}] C_target = {det_ev['Q_smp']:.1f} / 0.85 = {c_targ:.1f} smp/jam\n"
+            f"  • w_H_target = ({c_targ:.1f} / {det_ev['J']:.1f}) × {det_ev['c_s']:.1f} = {wh_targ:.1f} detik\n"
+            f"  • L_E_target = {c_targ:.1f} / (600 × {det_ev['F_UK']:.2f} × {ras_h_ev:.3f}) = {le_targ:.2f} m",
+            language="text"
+        )
+
+        st.markdown("#### 5. Penjelasan & Masukan Evaluasi")
         ada_perubahan = any(
             abs(st.session_state.eval_wh_map[p] - data_input[p]["w_H"]) > 1e-9
             or abs(st.session_state.eval_l_map[p] - data_input[p]["L"]) > 1e-9
@@ -1346,7 +1447,7 @@ else:
 
         if not ada_perubahan:
             st.info(
-                "Belum ada perubahan parameter evaluasi. Gunakan tombol preset atau ubah nilai **w_H**, **L**, atau **L_BKiJT** pada masing-masing pendekat di atas."
+                "Belum ada perubahan parameter evaluasi. Gunakan tombol preset, terapkan rekomendasi PKJI di atas, atau ubah nilai **w_H**, **L**, atau **L_BKiJT** per pendekat."
             )
         else:
             if delta_dj < 0 and delta_pa < 0 and delta_t < 0:
