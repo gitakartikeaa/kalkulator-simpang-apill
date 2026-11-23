@@ -3,8 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import io
+import os
+import json
 import html as html_lib
-from datetime import date
+from datetime import date, datetime
 
 # ==========================================
 # KONFIGURASI HALAMAN STREAMLIT
@@ -15,23 +17,93 @@ st.set_page_config(
     layout="wide"
 )
 
+HISTORY_FILE = ".pkji_history.json"
+PENDEKAT_LIST = ["Utara", "Selatan", "Timur", "Barat"]
+
+DEFAULT_IDENTITAS = {
+    "nama_simpang": "",
+    "ruas_jalan": "",
+    "kota": "",
+    "tanggal": date.today().isoformat(),
+    "jam_survei": "07.00 - 08.00 WIB",
+    "cuaca": "Cerah",
+    "surveyor": ""
+}
+
+DEFAULT_INPUT = {
+    "Utara": {"tipe": "P", "L": 7.0, "L_BKiJT": 0.0, "w_H": 25.0, "MP": 700, "KB": 50, "SM": 1800, "KTB": 0},
+    "Selatan": {"tipe": "P", "L": 7.0, "L_BKiJT": 0.0, "w_H": 25.0, "MP": 700, "KB": 50, "SM": 1800, "KTB": 0},
+    "Timur": {"tipe": "P", "L": 6.0, "L_BKiJT": 0.0, "w_H": 25.0, "MP": 500, "KB": 30, "SM": 1400, "KTB": 0},
+    "Barat": {"tipe": "P", "L": 6.0, "L_BKiJT": 0.0, "w_H": 25.0, "MP": 500, "KB": 30, "SM": 1400, "KTB": 0},
+}
+
+
+def muat_riwayat_disk():
+    """Membaca riwayat penggunaan dari file JSON lokal jika ada."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            return []
+    return []
+
+
+def simpan_riwayat_disk(riwayat_list):
+    """Menyimpan daftar riwayat ke file JSON lokal."""
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(riwayat_list[-25:], f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
 # Inisialisasi Session State
 if "tema_gelap" not in st.session_state:
     st.session_state.tema_gelap = False
 
+if "riwayat_penggunaan" not in st.session_state:
+    st.session_state.riwayat_penggunaan = muat_riwayat_disk()
+
+# Jika sudah ada riwayat sebelumnya, muat snapshot terakhir agar tidak perlu input ulang
+last_snap = st.session_state.riwayat_penggunaan[-1] if st.session_state.riwayat_penggunaan else None
+
 if "identitas_tersimpan" not in st.session_state:
-    st.session_state.identitas_tersimpan = False
+    st.session_state.identitas_tersimpan = bool(
+        last_snap and last_snap.get("identitas", {}).get("nama_simpang")
+    )
 
 if "data_identitas" not in st.session_state:
-    st.session_state.data_identitas = {
-        "nama_simpang": "",
-        "ruas_jalan": "",
-        "kota": "",
-        "tanggal": date.today(),
-        "jam_survei": "07.00 - 08.00 WIB",
-        "cuaca": "Cerah",
-        "surveyor": ""
-    }
+    if last_snap and "identitas" in last_snap:
+        id_raw = dict(DEFAULT_IDENTITAS)
+        id_raw.update(last_snap["identitas"])
+        st.session_state.data_identitas = id_raw
+    else:
+        st.session_state.data_identitas = dict(DEFAULT_IDENTITAS)
+
+if "sinyal_tersimpan" not in st.session_state:
+    st.session_state.sinyal_tersimpan = (
+        last_snap.get("sinyal", {"fase": 4, "w_MS": 3.0, "w_K": 3.0, "ukuran_kota": "1.0 - 3.0"})
+        if last_snap else {"fase": 4, "w_MS": 3.0, "w_K": 3.0, "ukuran_kota": "1.0 - 3.0"}
+    )
+
+if "pendekat_tersimpan" not in st.session_state:
+    if last_snap and "pendekat" in last_snap:
+        p_init = {}
+        for p in PENDEKAT_LIST:
+            base_p = dict(DEFAULT_INPUT[p])
+            base_p.update(last_snap["pendekat"].get(p, {}))
+            p_init[p] = base_p
+        st.session_state.pendekat_tersimpan = p_init
+    else:
+        st.session_state.pendekat_tersimpan = {p: dict(DEFAULT_INPUT[p]) for p in PENDEKAT_LIST}
+
+if "emp_custom_tersimpan" not in st.session_state:
+    st.session_state.emp_custom_tersimpan = (
+        last_snap.get("emp_custom", {}) if last_snap else {}
+    )
 
 if "hasil_pertama_df" not in st.session_state:
     st.session_state.hasil_pertama_df = None
@@ -44,69 +116,76 @@ if "rumus_terpilih" not in st.session_state:
 
 
 # ==========================================
-# TEMA WARNA (TERANG: BIRU LANGIT + CREAM/PUTIH | GELAP: NAVY)
+# TEMA WARNA
+# Terang: Merino (#F5EEDD), Rock Blue (#84B3CE), Venice Blue (#16587B)
+# Gelap: Navy
 # ==========================================
 def terapkan_tema(is_dark: bool):
     if is_dark:
         palet = {
-            "bg_main": "#0A1128",
-            "bg_secondary": "#111D3E",
-            "bg_card": "#15254E",
-            "bg_input": "#0D1733",
-            "border": "#2B4682",
-            "primary": "#38BDF8",
-            "primary_hover": "#0EA5E9",
+            "bg_main": "#081024",
+            "bg_secondary": "#0E1A38",
+            "bg_card": "#13234A",
+            "bg_input": "#0A142E",
+            "border": "#264380",
+            "primary": "#84B3CE",
+            "primary_hover": "#679BB8",
             "primary_text": "#061026",
-            "text_main": "#F8FAFC",
+            "text_main": "#F5EEDD",
             "text_muted": "#CBD5E1",
-            "table_head_bg": "#1D3570",
-            "table_head_text": "#F0F9FF",
-            "table_row_even": "#0F1B3A",
-            "table_row_odd": "#14234B",
-            "table_hover": "#1E3878",
-            "chart_bg": "#111D3E",
-            "chart_text": "#F8FAFC",
-            "chart_grid": "#334E8C"
+            "alert_bg": "#152B59",
+            "alert_text": "#F5EEDD",
+            "alert_border": "#84B3CE",
+            "table_head_bg": "#16587B",
+            "table_head_text": "#F5EEDD",
+            "table_row_even": "#0E1C3D",
+            "table_row_odd": "#14254E",
+            "table_hover": "#1D356B",
+            "chart_bg": "#0E1A38",
+            "chart_text": "#F5EEDD",
+            "chart_grid": "#2A4785"
         }
     else:
+        # Merino: #F5EEDD | Rock Blue: #84B3CE | Venice Blue: #16587B
         palet = {
-            "bg_main": "#FBF9F5",
-            "bg_secondary": "#EFF6FF",
+            "bg_main": "#F5EEDD",
+            "bg_secondary": "#84B3CE",
             "bg_card": "#FFFFFF",
-            "bg_input": "#F8FAFC",
-            "border": "#BAE6FD",
-            "primary": "#0284C7",
-            "primary_hover": "#0369A1",
-            "primary_text": "#FFFFFF",
-            "text_main": "#0F172A",
-            "text_muted": "#1E293B",
-            "table_head_bg": "#0369A1",
-            "table_head_text": "#FFFFFF",
+            "bg_input": "#FCFBF7",
+            "border": "#16587B",
+            "primary": "#16587B",
+            "primary_hover": "#0F405A",
+            "primary_text": "#F5EEDD",
+            "text_main": "#0E3950",
+            "text_muted": "#16587B",
+            "alert_bg": "#DCECF5",
+            "alert_text": "#0E3950",
+            "alert_border": "#16587B",
+            "table_head_bg": "#16587B",
+            "table_head_text": "#F5EEDD",
             "table_row_even": "#FFFFFF",
-            "table_row_odd": "#F0F9FF",
-            "table_hover": "#E0F2FE",
+            "table_row_odd": "#EBF4F9",
+            "table_hover": "#CFE4F0",
             "chart_bg": "#FFFFFF",
-            "chart_text": "#0F172A",
-            "chart_grid": "#CBD5E1"
+            "chart_text": "#0E3950",
+            "chart_grid": "#9BBFD4"
         }
 
     st.markdown(
         f"""
         <style>
-        /* Latar Utama & Header */
         .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
             background-color: {palet['bg_main']} !important;
             color: {palet['text_main']} !important;
         }}
 
-        /* Sidebar */
         [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{
             background-color: {palet['bg_secondary']} !important;
-            border-right: 1px solid {palet['border']} !important;
+            border-right: 2px solid {palet['border']} !important;
         }}
 
-        /* Paksa seluruh teks label, paragraf, heading, caption, slider, checkbox, radio agar kontras */
-        .stApp p, .stApp span, .stApp label, .stApp div, .stApp li,
+        /* Seluruh teks utama & label */
+        .stApp p, .stApp span, .stApp label, .stApp li,
         [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
         [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
         [data-testid="stCaptionContainer"], .stCheckbox label p, .stRadio label p,
@@ -115,20 +194,33 @@ def terapkan_tema(is_dark: bool):
             color: {palet['text_main']} !important;
         }}
 
-        /* Input field (text_input, number_input, selectbox, date_input) */
+        /* Kotak Info / Warning / Success / Error agar kontras dan mudah dibaca */
+        [data-testid="stAlert"], [data-testid="stAlert"] > div,
+        [data-testid="stNotification"], [data-testid="stNotification"] > div {{
+            background-color: {palet['alert_bg']} !important;
+            color: {palet['alert_text']} !important;
+            border: 1px solid {palet['alert_border']} !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stAlert"] p, [data-testid="stAlert"] span, [data-testid="stAlert"] div {{
+            color: {palet['alert_text']} !important;
+        }}
+
+        /* Field Input */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
         [data-baseweb="select"] > div {{
             background-color: {palet['bg_input']} !important;
             color: {palet['text_main']} !important;
-            border-color: {palet['border']} !important;
+            border: 1px solid {palet['border']} !important;
+            border-radius: 8px !important;
         }}
         [data-baseweb="select"] span, [data-baseweb="select"] div {{
             color: {palet['text_main']} !important;
         }}
         [data-testid="stNumberInput"] button {{
-            background-color: {palet['bg_secondary']} !important;
+            background-color: {palet['bg_card']} !important;
             color: {palet['text_main']} !important;
             border-color: {palet['border']} !important;
         }}
@@ -140,25 +232,24 @@ def terapkan_tema(is_dark: bool):
             border-radius: 10px !important;
         }}
 
-        /* Kartu Metrik KPI */
+        /* Kartu KPI */
         [data-testid="stMetric"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
             border-left: 5px solid {palet['primary']} !important;
             border-radius: 12px;
             padding: 14px 18px;
-            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08);
         }}
         [data-testid="stMetricLabel"] p, [data-testid="stMetricLabel"] div {{
             color: {palet['text_muted']} !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
         }}
         [data-testid="stMetricValue"] div {{
             color: {palet['text_main']} !important;
-            font-weight: 700 !important;
+            font-weight: 800 !important;
         }}
 
-        /* Form Container */
+        /* Form */
         [data-testid="stForm"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
@@ -172,7 +263,7 @@ def terapkan_tema(is_dark: bool):
             border: 1px solid {palet['border']} !important;
             background-color: {palet['bg_card']} !important;
             color: {palet['text_main']} !important;
-            font-weight: 600;
+            font-weight: 700;
             transition: all 0.2s ease;
         }}
         .stButton > button p, .stFormSubmitButton > button p, .stDownloadButton > button p {{
@@ -189,14 +280,14 @@ def terapkan_tema(is_dark: bool):
         button[kind="primary"], button[kind="primary"] p {{
             background-color: {palet['primary']} !important;
             color: {palet['primary_text']} !important;
-            border: none !important;
+            border: 1px solid {palet['border']} !important;
         }}
         button[kind="primary"]:hover, button[kind="primary"]:hover p {{
             background-color: {palet['primary_hover']} !important;
             color: {palet['primary_text']} !important;
         }}
 
-        /* Radio Mode Navigasi */
+        /* Radio Navigasi */
         div[role="radiogroup"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
@@ -207,7 +298,7 @@ def terapkan_tema(is_dark: bool):
         /* Tabs */
         button[data-baseweb="tab"] p {{
             color: {palet['text_muted']} !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
         }}
         button[data-baseweb="tab"][aria-selected="true"] p {{
             color: {palet['primary']} !important;
@@ -216,13 +307,12 @@ def terapkan_tema(is_dark: bool):
             border-bottom-color: {palet['primary']} !important;
         }}
 
-        /* Tabel Kustom Rapi & Modern */
+        /* Tabel Kustom */
         .pkji-table-wrap {{
             width: 100%;
             overflow-x: auto;
             border-radius: 12px;
             border: 1px solid {palet['border']};
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08);
             margin: 10px 0 18px 0;
         }}
         table.pkji-table {{
@@ -273,7 +363,7 @@ def terapkan_tema(is_dark: bool):
         .badge-ok {{ background-color: #DCFCE7; color: #166534 !important; }}
         .badge-warn {{ background-color: #FEF3C7; color: #92400E !important; }}
         .badge-bad {{ background-color: #FEE2E2; color: #991B1B !important; }}
-        .badge-info {{ background-color: #E0F2FE; color: #075985 !important; }}
+        .badge-info {{ background-color: #DCECF5; color: #0E3950 !important; }}
         </style>
         """,
         unsafe_allow_html=True
@@ -282,7 +372,6 @@ def terapkan_tema(is_dark: bool):
 
 
 def render_tabel_cantik(df: pd.DataFrame, format_cols: dict = None):
-    """Merender DataFrame menjadi tabel HTML berdesain rapi dengan badge status otomatis."""
     format_cols = format_cols or {}
     headers_html = "".join(f"<th>{html_lib.escape(str(col))}</th>" for col in df.columns)
 
@@ -331,7 +420,6 @@ def render_tabel_cantik(df: pd.DataFrame, format_cols: dict = None):
 # FUNGSI BANTUAN PERHITUNGAN PKJI
 # ==========================================
 def get_emp_pkji(tipe_pendekat):
-    """Mengembalikan nilai eMP standar PKJI berdasarkan tipe pendekat ('P' atau 'O')."""
     if tipe_pendekat == "P":
         return {"MP": 1.0, "KB": 1.3, "SM": 0.2, "KTB": 0.0}
     else:
@@ -339,7 +427,6 @@ def get_emp_pkji(tipe_pendekat):
 
 
 def hitung_konversi_smp(data_input, custom_emp_map):
-    """Mode 1: Mengonversi angka hitungan mentah lapangan ke satuan smp/jam."""
     rows = []
     for p, d in data_input.items():
         emp = custom_emp_map[p]
@@ -373,7 +460,6 @@ def hitung_kinerja_lengkap(
     override_L=None,
     override_FUK=None,
 ):
-    """Menghitung seluruh parameter kinerja simpang APILL hingga LOS."""
     f_uk_aktif = override_FUK if override_FUK is not None else F_UK
 
     w_h_map = {}
@@ -476,7 +562,6 @@ def hitung_kinerja_lengkap(
 
 
 def tampilkan_detail_rumus(nama_rumus, det):
-    """Menampilkan Rumus -> Masukkan Angka -> Hasil Akhir untuk rumus yang dipilih."""
     p_nama = det.get("pendekat_label", "Pendekat")
     st.markdown(f"#### 🧮 Rincian Perhitungan: **{nama_rumus}** ({p_nama})")
 
@@ -487,7 +572,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: Q = {det['Q_smp']:.2f} smp/jam",
             language="text"
         )
-
     elif nama_rumus == "Lebar Efektif Pendekat (L_E)":
         st.latex(r"L_E = L - L_{BKiJT}")
         st.code(
@@ -495,7 +579,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: L_E = {det['L_E']:.2f} m",
             language="text"
         )
-
     elif nama_rumus == "Arus Jenuh Dasar (J_0)":
         st.latex(r"J_0 = 600 \times L_E")
         st.code(
@@ -503,7 +586,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: J_0 = {det['J_0']:.2f} smp/jam hijau",
             language="text"
         )
-
     elif nama_rumus == "Arus Jenuh Tersesuaikan (J)":
         st.latex(r"J = J_0 \times F_{UK}")
         st.code(
@@ -511,7 +593,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: J = {det['J']:.2f} smp/jam hijau",
             language="text"
         )
-
     elif nama_rumus == "Kapasitas Pendekat (C)":
         st.latex(r"C = J \times \frac{w_H}{c_s}")
         st.code(
@@ -519,7 +600,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: C = {det['C']:.2f} smp/jam",
             language="text"
         )
-
     elif nama_rumus == "Derajat Kejenuhan (DJ)":
         st.latex(r"DJ = \frac{Q}{C}")
         st.code(
@@ -527,7 +607,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: DJ = {det['DJ']:.3f}",
             language="text"
         )
-
     elif nama_rumus == "Jumlah Antrian (NQ_total)":
         st.latex(r"NQ_1 = 0{,}25 \times C \left[(DJ - 1) + \sqrt{(DJ - 1)^2 + \frac{8(DJ - 0{,}5)}{C}}\right] \quad (\text{jika } DJ > 0{,}5)")
         st.latex(r"NQ_2 = \frac{1 - (w_H / c_s)}{1 - \min(1;\ DJ \cdot w_H / c_s)} \times \frac{Q}{3600} \times (c_s - w_H)")
@@ -538,7 +617,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: NQ_total = {det['NQ1']:.3f} + {det['NQ2']:.3f} = {det['NQ_total']:.2f} smp",
             language="text"
         )
-
     elif nama_rumus == "Panjang Antrian (PA)":
         st.latex(r"PA = \frac{NQ_{\text{total}} \times 20}{L_E}")
         st.code(
@@ -546,7 +624,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: PA = {det['PA']:.1f} meter",
             language="text"
         )
-
     elif nama_rumus == "Rasio Kendaraan Henti (RKH)":
         rasio_h = (det["w_H"] / det["c_s"]) if det["c_s"] > 0 else 0
         penj = max(0.05, 1.0 - min(0.95, det["DJ"] * rasio_h))
@@ -556,7 +633,6 @@ def tampilkan_detail_rumus(nama_rumus, det):
             f"Hasil Akhir: RKH = {det['RKH']:.3f}",
             language="text"
         )
-
     elif nama_rumus == "Tundaan Rata-Rata (T_total)":
         st.latex(r"T_{LL} = \frac{0{,}5 \times c_s \times (1 - w_H/c_s)^2}{1 - \min(1;\ DJ \cdot w_H/c_s)} + \frac{NQ_1 \times 3600}{C}")
         st.latex(r"T_G = (1 - RKH) \times 4 + RKH \times 6 \qquad ; \qquad T_{\text{total}} = T_{LL} + T_G")
@@ -568,6 +644,57 @@ def tampilkan_detail_rumus(nama_rumus, det):
         )
 
 
+def catat_history(identitas_dict, sinyal_dict, pendekat_dict, emp_custom_dict):
+    """Menyimpan snapshot penggunaan terbaru ke session_state dan disk."""
+    label_simpang = identitas_dict.get("nama_simpang") or "Simpang Tanpa Nama"
+    label_waktu = datetime.now().strftime("%d/%m %H:%M")
+    snapshot = {
+        "label": f"{label_simpang} ({label_waktu})",
+        "identitas": dict(identitas_dict),
+        "sinyal": dict(sinyal_dict),
+        "pendekat": {p: dict(d) for p, d in pendekat_dict.items()},
+        "emp_custom": {p: dict(e) for p, e in emp_custom_dict.items()}
+    }
+    st.session_state.riwayat_penggunaan.append(snapshot)
+    st.session_state.riwayat_penggunaan = st.session_state.riwayat_penggunaan[-25:]
+    simpan_riwayat_disk(st.session_state.riwayat_penggunaan)
+
+
+def terapkan_snapshot(snap):
+    """Memuat kembali snapshot history ke session_state."""
+    id_new = dict(DEFAULT_IDENTITAS)
+    id_new.update(snap.get("identitas", {}))
+    st.session_state.data_identitas = id_new
+    st.session_state.identitas_tersimpan = bool(id_new.get("nama_simpang"))
+
+    sinyal_new = {"fase": 4, "w_MS": 3.0, "w_K": 3.0, "ukuran_kota": "1.0 - 3.0"}
+    sinyal_new.update(snap.get("sinyal", {}))
+    st.session_state.sinyal_tersimpan = sinyal_new
+
+    p_new = {}
+    for p in PENDEKAT_LIST:
+        base = dict(DEFAULT_INPUT[p])
+        base.update(snap.get("pendekat", {}).get(p, {}))
+        p_new[p] = base
+        st.session_state[f"tipe_{p}"] = base["tipe"]
+        st.session_state[f"L_{p}"] = float(base["L"])
+        st.session_state[f"bk_{p}"] = float(base["L_BKiJT"])
+        st.session_state[f"wH_{p}"] = float(base["w_H"])
+        st.session_state[f"mp_{p}"] = int(base["MP"])
+        st.session_state[f"kb_{p}"] = int(base["KB"])
+        st.session_state[f"sm_{p}"] = int(base["SM"])
+        st.session_state[f"ktb_{p}"] = int(base["KTB"])
+
+    st.session_state["sb_fase"] = int(sinyal_new["fase"])
+    st.session_state["sb_wms"] = float(sinyal_new["w_MS"])
+    st.session_state["sb_wk"] = float(sinyal_new["w_K"])
+    st.session_state["sb_kota"] = sinyal_new["ukuran_kota"]
+
+    st.session_state.emp_custom_tersimpan = snap.get("emp_custom", {})
+    st.session_state.hasil_pertama_df = None
+    st.session_state.hasil_pertama_detail = None
+
+
 # Terapkan Tema Aktif
 palet_aktif = terapkan_tema(st.session_state.tema_gelap)
 
@@ -576,7 +703,7 @@ palet_aktif = terapkan_tema(st.session_state.tema_gelap)
 # HALAMAN AWAL: IDENTITAS SURVEI & SIMPANG
 # ==========================================
 if not st.session_state.identitas_tersimpan:
-    col_top1, col_top2 = st.columns([5, 1.2])
+    col_top1, col_top2 = st.columns([5, 1.3])
     with col_top1:
         st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
         st.caption("Silakan lengkapi data identitas survei terlebih dahulu sebelum membuka menu kalkulasi.")
@@ -589,46 +716,64 @@ if not st.session_state.identitas_tersimpan:
 
     st.divider()
 
+    if st.session_state.riwayat_penggunaan:
+        with st.expander(f"🕒 Riwayat Tersimpan ({len(st.session_state.riwayat_penggunaan)} data)", expanded=False):
+            pilihan_awal = [item["label"] for item in reversed(st.session_state.riwayat_penggunaan)]
+            dipilih_awal = st.selectbox("Pilih data dari riwayat sebelumnya:", pilihan_awal, key="awal_hist_sel")
+            if st.button("📂 Muat Data Riwayat Ini", key="awal_hist_btn"):
+                cocok = next((x for x in reversed(st.session_state.riwayat_penggunaan) if x["label"] == dipilih_awal), None)
+                if cocok:
+                    terapkan_snapshot(cocok)
+                    st.session_state.identitas_tersimpan = True
+                    st.rerun()
+
     st.subheader("📋 Data Identitas Simpang & Survei")
+    id_init = st.session_state.data_identitas
+    try:
+        tgl_init = date.fromisoformat(str(id_init.get("tanggal", date.today().isoformat())))
+    except Exception:
+        tgl_init = date.today()
+
+    cuaca_opsi = ["Cerah", "Berawan", "Hujan Ringan", "Hujan Lebat"]
+    cuaca_idx = cuaca_opsi.index(id_init.get("cuaca", "Cerah")) if id_init.get("cuaca", "Cerah") in cuaca_opsi else 0
+
     with st.form("form_identitas_awal"):
         col1, col2 = st.columns(2)
         with col1:
             nama_simpang = st.text_input(
                 "Nama Simpang *",
-                value=st.session_state.data_identitas["nama_simpang"],
+                value=id_init.get("nama_simpang", ""),
                 placeholder="Contoh: Simpang Empat Kebonpolo"
             )
             ruas_jalan = st.text_input(
                 "Ruas Jalan yang Bertemu *",
-                value=st.session_state.data_identitas["ruas_jalan"],
+                value=id_init.get("ruas_jalan", ""),
                 placeholder="Contoh: Jl. Ahmad Yani - Jl. Tentara Pelajar"
             )
             kota = st.text_input(
                 "Kota / Kabupaten",
-                value=st.session_state.data_identitas["kota"],
+                value=id_init.get("kota", ""),
                 placeholder="Contoh: Kota Magelang"
             )
         with col2:
             tanggal = st.date_input(
                 "Tanggal Survei",
-                value=st.session_state.data_identitas["tanggal"]
+                value=tgl_init
             )
             jam_survei = st.text_input(
                 "Jam Survei / Periode Waktu",
-                value=st.session_state.data_identitas["jam_survei"],
+                value=id_init.get("jam_survei", "07.00 - 08.00 WIB"),
                 placeholder="Contoh: 07.00 - 08.00 WIB"
             )
             cuaca = st.selectbox(
                 "Kondisi Cuaca",
-                ["Cerah", "Berawan", "Hujan Ringan", "Hujan Lebat"],
-                index=["Cerah", "Berawan", "Hujan Ringan", "Hujan Lebat"].index(
-                    st.session_state.data_identitas["cuaca"]
-                )
+                cuaca_opsi,
+                index=cuaca_idx
             )
 
         surveyor = st.text_input(
             "Nama Surveyor / Instansi / Kelompok",
-            value=st.session_state.data_identitas["surveyor"],
+            value=id_init.get("surveyor", ""),
             placeholder="Opsional"
         )
 
@@ -641,12 +786,18 @@ if not st.session_state.identitas_tersimpan:
                     "nama_simpang": nama_simpang.strip(),
                     "ruas_jalan": ruas_jalan.strip(),
                     "kota": kota.strip() if kota.strip() else "-",
-                    "tanggal": tanggal,
+                    "tanggal": tanggal.isoformat(),
                     "jam_survei": jam_survei.strip() if jam_survei.strip() else "-",
                     "cuaca": cuaca,
                     "surveyor": surveyor.strip() if surveyor.strip() else "-"
                 }
                 st.session_state.identitas_tersimpan = True
+                catat_history(
+                    st.session_state.data_identitas,
+                    st.session_state.sinyal_tersimpan,
+                    st.session_state.pendekat_tersimpan,
+                    st.session_state.emp_custom_tersimpan
+                )
                 st.rerun()
 
 # ==========================================
@@ -654,8 +805,12 @@ if not st.session_state.identitas_tersimpan:
 # ==========================================
 else:
     identitas = st.session_state.data_identitas
+    try:
+        tgl_tampil = date.fromisoformat(str(identitas.get("tanggal", date.today().isoformat()))).strftime("%d-%m-%Y")
+    except Exception:
+        tgl_tampil = str(identitas.get("tanggal", "-"))
 
-    c_h1, c_h2, c_h3 = st.columns([4.4, 1.2, 1.1])
+    c_h1, c_h2, c_h3 = st.columns([4.4, 1.3, 1.1])
     with c_h1:
         st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
     with c_h2:
@@ -674,7 +829,7 @@ else:
         f"**Simpang:** {identitas['nama_simpang']} | "
         f"**Ruas Jalan:** {identitas['ruas_jalan']} | "
         f"**Kota:** {identitas['kota']} | "
-        f"**Tanggal:** {identitas['tanggal'].strftime('%d-%m-%Y')} | "
+        f"**Tanggal:** {tgl_tampil} | "
         f"**Jam Survei:** {identitas['jam_survei']} | "
         f"**Cuaca:** {identitas['cuaca']} | "
         f"**Surveyor:** {identitas['surveyor']}"
@@ -697,63 +852,159 @@ else:
     # ==========================================
     st.sidebar.header("⚙️ Parameter Input Simpang")
 
+    sinyal_init = st.session_state.sinyal_tersimpan
+    kota_opsi = ["> 3.0", "1.0 - 3.0", "0.5 - 1.0", "0.1 - 0.5", "< 0.1"]
+    kota_idx = kota_opsi.index(sinyal_init.get("ukuran_kota", "1.0 - 3.0")) if sinyal_init.get("ukuran_kota", "1.0 - 3.0") in kota_opsi else 1
+
     st.sidebar.subheader("1. Informasi Sinyal & Kota")
-    fase = st.sidebar.number_input("Jumlah Fase", min_value=2, max_value=6, value=4)
-    w_MS = st.sidebar.number_input("Waktu Merah Semua / Fase (detik)", min_value=1.0, value=3.0, step=0.5)
-    w_K = st.sidebar.number_input("Waktu Kuning / Fase (detik)", min_value=1.0, value=3.0, step=0.5)
-    ukuran_kota = st.sidebar.selectbox(
-        "Ukuran Kota (Juta Jiwa)",
-        ["> 3.0", "1.0 - 3.0", "0.5 - 1.0", "0.1 - 0.5", "< 0.1"],
-        index=1
-    )
+    fase = st.sidebar.number_input("Jumlah Fase", min_value=2, max_value=6, value=int(sinyal_init.get("fase", 4)), key="sb_fase")
+    w_MS = st.sidebar.number_input("Waktu Merah Semua / Fase (detik)", min_value=1.0, value=float(sinyal_init.get("w_MS", 3.0)), step=0.5, key="sb_wms")
+    w_K = st.sidebar.number_input("Waktu Kuning / Fase (detik)", min_value=1.0, value=float(sinyal_init.get("w_K", 3.0)), step=0.5, key="sb_wk")
+    ukuran_kota = st.sidebar.selectbox("Ukuran Kota (Juta Jiwa)", kota_opsi, index=kota_idx, key="sb_kota")
+
+    st.session_state.sinyal_tersimpan = {
+        "fase": fase, "w_MS": w_MS, "w_K": w_K, "ukuran_kota": ukuran_kota
+    }
 
     f_uk_map = {"> 3.0": 1.05, "1.0 - 3.0": 1.00, "0.5 - 1.0": 0.94, "0.1 - 0.5": 0.88, "< 0.1": 0.82}
     F_UK = f_uk_map[ukuran_kota]
 
     st.sidebar.subheader("2. Data Pendekat & Arus Mentah")
-    pendekat_list = ["Utara", "Selatan", "Timur", "Barat"]
     data_input = {}
 
-    for p in pendekat_list:
+    for p in PENDEKAT_LIST:
+        p_init = st.session_state.pendekat_tersimpan.get(p, DEFAULT_INPUT[p])
         with st.sidebar.expander(f"Pendekat {p}", expanded=False):
-            tipe = st.selectbox(f"Tipe Pendekat {p}", ["P", "O"], key=f"tipe_{p}", help="P = Terlindung, O = Terlawan")
-            L = st.number_input(f"Lebar Pendekat L (m) [{p}]", min_value=2.0, value=7.0 if p in ["Utara", "Selatan"] else 6.0, key=f"L_{p}")
-            L_BKiJT = st.number_input(f"Lebar BKiJT (m) [{p}]", min_value=0.0, value=0.0, key=f"bk_{p}")
-            w_H = st.number_input(f"Waktu Hijau w_H (detik) [{p}]", min_value=5.0, value=25.0, key=f"wH_{p}")
+            tipe = st.selectbox(f"Tipe Pendekat {p}", ["P", "O"], index=0 if p_init.get("tipe", "P") == "P" else 1, key=f"tipe_{p}", help="P = Terlindung, O = Terlawan")
+            L = st.number_input(f"Lebar Pendekat L (m) [{p}]", min_value=2.0, value=float(p_init.get("L", DEFAULT_INPUT[p]["L"])), key=f"L_{p}")
+            L_BKiJT = st.number_input(f"Lebar BKiJT (m) [{p}]", min_value=0.0, value=float(p_init.get("L_BKiJT", 0.0)), key=f"bk_{p}")
+            w_H = st.number_input(f"Waktu Hijau w_H (detik) [{p}]", min_value=5.0, value=float(p_init.get("w_H", 25.0)), key=f"wH_{p}")
 
             st.write("**Arus Lalu Lintas Mentah (kend/jam):**")
-            mp = st.number_input(f"Mobil Penumpang (MP) [{p}]", min_value=0, value=700 if p in ["Utara", "Selatan"] else 500, key=f"mp_{p}")
-            kb = st.number_input(f"Kendaraan Berat (KB) [{p}]", min_value=0, value=50 if p in ["Utara", "Selatan"] else 30, key=f"kb_{p}")
-            sm = st.number_input(f"Sepeda Motor (SM) [{p}]", min_value=0, value=1800 if p in ["Utara", "Selatan"] else 1400, key=f"sm_{p}")
-            ktb = st.number_input(f"Kendaraan Tak Bermotor (KTB) [{p}]", min_value=0, value=0, key=f"ktb_{p}")
+            mp = st.number_input(f"Mobil Penumpang (MP) [{p}]", min_value=0, value=int(p_init.get("MP", DEFAULT_INPUT[p]["MP"])), key=f"mp_{p}")
+            kb = st.number_input(f"Kendaraan Berat (KB) [{p}]", min_value=0, value=int(p_init.get("KB", DEFAULT_INPUT[p]["KB"])), key=f"kb_{p}")
+            sm = st.number_input(f"Sepeda Motor (SM) [{p}]", min_value=0, value=int(p_init.get("SM", DEFAULT_INPUT[p]["SM"])), key=f"sm_{p}")
+            ktb = st.number_input(f"Kendaraan Tak Bermotor (KTB) [{p}]", min_value=0, value=int(p_init.get("KTB", 0)), key=f"ktb_{p}")
 
             data_input[p] = {
                 "tipe": tipe, "L": L, "L_BKiJT": L_BKiJT, "w_H": w_H,
                 "MP": mp, "KB": kb, "SM": sm, "KTB": ktb
             }
+            st.session_state.pendekat_tersimpan[p] = dict(data_input[p])
 
-    st.sidebar.subheader("3. Pengaturan Nilai eMP")
-    gunakan_emp_custom = st.sidebar.checkbox("Ubah nilai eMP secara mandiri (Custom)", value=False)
+    st.sidebar.subheader("3. Custom eMP")
+    gunakan_emp_custom = st.sidebar.checkbox("Ubah nilai eMP secara mandiri (Custom)", value=bool(st.session_state.emp_custom_tersimpan), key="sb_emp_custom")
     custom_emp_map = {}
 
-    for p in pendekat_list:
+    for p in PENDEKAT_LIST:
         default_emp = get_emp_pkji(data_input[p]["tipe"])
+        saved_emp = st.session_state.emp_custom_tersimpan.get(p, default_emp)
         if gunakan_emp_custom:
             with st.sidebar.expander(f"eMP Custom — {p}", expanded=False):
-                e_mp = st.number_input(f"eMP [{p}]", min_value=0.0, value=float(default_emp["MP"]), step=0.05, key=f"emp_mp_{p}")
-                e_kb = st.number_input(f"eKB [{p}]", min_value=0.0, value=float(default_emp["KB"]), step=0.05, key=f"emp_kb_{p}")
-                e_sm = st.number_input(f"eSM [{p}]", min_value=0.0, value=float(default_emp["SM"]), step=0.05, key=f"emp_sm_{p}")
-                e_ktb = st.number_input(f"eKTB [{p}]", min_value=0.0, value=float(default_emp["KTB"]), step=0.05, key=f"emp_ktb_{p}")
+                e_mp = st.number_input(f"eMP [{p}]", min_value=0.0, value=float(saved_emp.get("MP", default_emp["MP"])), step=0.05, key=f"emp_mp_{p}")
+                e_kb = st.number_input(f"eKB [{p}]", min_value=0.0, value=float(saved_emp.get("KB", default_emp["KB"])), step=0.05, key=f"emp_kb_{p}")
+                e_sm = st.number_input(f"eSM [{p}]", min_value=0.0, value=float(saved_emp.get("SM", default_emp["SM"])), step=0.05, key=f"emp_sm_{p}")
+                e_ktb = st.number_input(f"eKTB [{p}]", min_value=0.0, value=float(saved_emp.get("KTB", default_emp["KTB"])), step=0.05, key=f"emp_ktb_{p}")
                 custom_emp_map[p] = {"MP": e_mp, "KB": e_kb, "SM": e_sm, "KTB": e_ktb}
         else:
             custom_emp_map[p] = default_emp
 
+    if gunakan_emp_custom:
+        st.session_state.emp_custom_tersimpan = {p: dict(custom_emp_map[p]) for p in PENDEKAT_LIST}
+    else:
+        st.session_state.emp_custom_tersimpan = {}
+
+    # Hitung baseline & data untuk ekspor Excel lintas mode
     df_awal, c_s_awal, w_hh_awal, detail_awal = hitung_kinerja_lengkap(
         data_input, custom_emp_map, fase, w_MS, w_K, F_UK
     )
     if st.session_state.hasil_pertama_df is None:
         st.session_state.hasil_pertama_df = df_awal.copy()
         st.session_state.hasil_pertama_detail = detail_awal
+
+    df_konversi_global = hitung_konversi_smp(data_input, custom_emp_map)
+
+    ev_wh_aktif = st.session_state.get("eval_wh_map", {p: float(data_input[p]["w_H"]) for p in PENDEKAT_LIST})
+    ev_l_aktif = st.session_state.get("eval_l_map", {p: float(data_input[p]["L"]) for p in PENDEKAT_LIST})
+    ev_bk_aktif = st.session_state.get("eval_bk_map", {p: float(data_input[p]["L_BKiJT"]) for p in PENDEKAT_LIST})
+    data_eval_global = {}
+    for p in PENDEKAT_LIST:
+        sal = dict(data_input[p])
+        sal["L_BKiJT"] = ev_bk_aktif.get(p, data_input[p]["L_BKiJT"])
+        data_eval_global[p] = sal
+    df_evaluasi_global, _, _, _ = hitung_kinerja_lengkap(
+        data_eval_global, custom_emp_map, fase, w_MS, w_K, F_UK,
+        override_wH=ev_wh_aktif, override_L=ev_l_aktif
+    )
+    df_pertama_global = st.session_state.hasil_pertama_df.copy()
+    df_banding_global = pd.DataFrame({
+        "Pendekat": df_pertama_global["Pendekat"],
+        "DJ Awal": df_pertama_global["DJ"],
+        "DJ Eval": df_evaluasi_global["DJ"],
+        "ΔDJ": (df_evaluasi_global["DJ"] - df_pertama_global["DJ"]).round(3),
+        "PA Awal (m)": df_pertama_global["PA (m)"],
+        "PA Eval (m)": df_evaluasi_global["PA (m)"],
+        "ΔPA (m)": (df_evaluasi_global["PA (m)"] - df_pertama_global["PA (m)"]).round(1),
+        "Tundaan Awal": df_pertama_global["Tundaan (s/smp)"],
+        "Tundaan Eval": df_evaluasi_global["Tundaan (s/smp)"],
+        "ΔTundaan": (df_evaluasi_global["Tundaan (s/smp)"] - df_pertama_global["Tundaan (s/smp)"]).round(2),
+        "LOS Awal": df_pertama_global["LOS"],
+        "LOS Evaluasi": df_evaluasi_global["LOS"]
+    })
+
+    # ==========================================================
+    # SIDEBAR KIRI BAWAH (DI BAWAH CUSTOM EMP): HISTORY & EKSPOR EXCEL
+    # ==========================================
+    st.sidebar.divider()
+    st.sidebar.subheader("🕒 History")
+    if st.sidebar.button("💾 Simpan Sesi ke History", key="btn_simpan_history", use_container_width=True):
+        catat_history(
+            st.session_state.data_identitas,
+            st.session_state.sinyal_tersimpan,
+            st.session_state.pendekat_tersimpan,
+            st.session_state.emp_custom_tersimpan
+        )
+        st.sidebar.success("Data tersimpan ke history.")
+
+    if st.session_state.riwayat_penggunaan:
+        opsi_hist = [item["label"] for item in reversed(st.session_state.riwayat_penggunaan)]
+        pilih_hist = st.sidebar.selectbox("Riwayat tersimpan:", opsi_hist, key="sb_hist_select")
+        if st.sidebar.button("📂 Muat History Terpilih", key="btn_muat_history", use_container_width=True):
+            item_cocok = next((x for x in reversed(st.session_state.riwayat_penggunaan) if x["label"] == pilih_hist), None)
+            if item_cocok:
+                terapkan_snapshot(item_cocok)
+                st.rerun()
+    else:
+        st.sidebar.caption("Belum ada riwayat tersimpan.")
+
+    st.sidebar.subheader("📥 Ekspor Excel (Mode 1, 2, 3)")
+    df_id_sheet = pd.DataFrame({
+        "Parameter": [
+            "Nama Simpang", "Ruas Jalan", "Kota / Kabupaten", "Tanggal Survei",
+            "Jam Survei", "Kondisi Cuaca", "Surveyor", "Ukuran Kota",
+            "Jumlah Fase", "Waktu Siklus Estimasi (s)"
+        ],
+        "Keterangan": [
+            identitas["nama_simpang"], identitas["ruas_jalan"], identitas["kota"],
+            tgl_tampil, identitas["jam_survei"], identitas["cuaca"],
+            identitas["surveyor"], ukuran_kota, fase, round(c_s_awal, 1)
+        ]
+    })
+
+    excel_buf = io.BytesIO()
+    with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
+        df_id_sheet.to_excel(writer, sheet_name="Identitas Survei", index=False)
+        df_konversi_global.to_excel(writer, sheet_name="Mode 1 - Konversi SMP", index=False)
+        df_awal.to_excel(writer, sheet_name="Mode 2 - Kinerja Lengkap", index=False)
+        df_banding_global.to_excel(writer, sheet_name="Mode 3 - Evaluasi", index=False)
+
+    st.sidebar.download_button(
+        label="📊 Download Excel (.xlsx)",
+        data=excel_buf.getvalue(),
+        file_name=f"PKJI_{identitas['nama_simpang'].replace(' ', '_') or 'Simpang'}_Mode1_2_3.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
     format_tabel_lengkap = {
         "L_E (m)": "{:.2f}",
@@ -791,7 +1042,7 @@ else:
         emp_map_m1 = {}
 
         cols_m1 = st.columns(4)
-        for idx, p in enumerate(pendekat_list):
+        for idx, p in enumerate(PENDEKAT_LIST):
             with cols_m1[idx]:
                 st.markdown(f"**Pendekat {p}**")
                 tipe_m1 = st.selectbox(f"Tipe [{p}]", ["P", "O"], index=0 if data_input[p]["tipe"] == "P" else 1, key=f"m1_tipe_{p}")
@@ -852,7 +1103,7 @@ else:
         render_tabel_cantik(df_awal, format_cols=format_tabel_lengkap)
 
         st.markdown("### 📐 Cek Detail Rumus per Perhitungan (Klik Tombol Rumus)")
-        pendekat_aktif = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Angka:", pendekat_list)
+        pendekat_aktif = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Angka:", PENDEKAT_LIST)
 
         daftar_rumus = [
             "Arus Lalu Lintas (Q)",
@@ -900,17 +1151,16 @@ else:
         for text in leg.get_texts():
             text.set_color(palet_aktif["chart_text"])
 
-        ax2.bar(df_awal["Pendekat"], df_awal["PA (m)"], color="#10B981")
+        ax2.bar(df_awal["Pendekat"], df_awal["PA (m)"], color="#2E8B57")
         ax2.set_title("Panjang Antrian (PA) per Pendekat")
         ax2.set_ylabel("Panjang Antrian (meter)")
 
         plt.tight_layout()
         st.pyplot(fig)
 
-        # Penjelasan Arti Grafik di Bawah Grafik
         st.markdown("#### 🔍 Penjelasan Arti Grafik")
         st.markdown(
-            "* **Grafik Kiri — Derajat Kejenuhan (DJ) per Pendekat:** Menunjukkan rasio perbandingan antara arus lalu lintas (`Q`) dengan kapasitas pendekat (`C`). Garis putus-putus merah menandakan **batas kritis DJ = 0,85** sesuai pedoman PKJI. Batang berwarna biru/utama berarti nilai DJ masih di bawah batas kritis, sedangkan batang merah menunjukkan pendekat yang melewati batas kritis (`DJ > 0,85`) sehingga rawan kepadatan dan antrian berlebih.\n"
+            "* **Grafik Kiri — Derajat Kejenuhan (DJ) per Pendekat:** Menunjukkan rasio perbandingan antara arus lalu lintas (`Q`) dengan kapasitas pendekat (`C`). Garis putus-putus merah menandakan **batas kritis DJ = 0,85** sesuai pedoman PKJI. Batang berwarna utama berarti nilai DJ masih di bawah batas kritis, sedangkan batang merah menunjukkan pendekat yang melewati batas kritis (`DJ > 0,85`) sehingga rawan kepadatan dan antrian berlebih.\n"
             "* **Grafik Kanan — Panjang Antrian (PA) per Pendekat:** Menggambarkan perkiraan panjang barisan kendaraan (dalam meter) yang mengantre di tiap lengan pendekat berdasarkan jumlah antrian (`NQ_total`) dan lebar efektif pendekat (`L_E`). Semakin tinggi batang pada grafik ini, semakin panjang antrian kendaraan yang terbentuk sehingga perlu dicermati potensi hambatan hingga ke persimpangan/lengan sebelumnya."
         )
 
@@ -935,33 +1185,6 @@ else:
             f"* **Evaluasi & Rekomendasi Perbaikan:** {teks_rekomendasi}"
         )
 
-        st.markdown("### 📥 Unduh Laporan Excel")
-        df_identitas_excel = pd.DataFrame({
-            "Parameter": [
-                "Nama Simpang", "Ruas Jalan", "Kota / Kabupaten", "Tanggal Survei",
-                "Jam Survei", "Kondisi Cuaca", "Surveyor", "Ukuran Kota",
-                "Jumlah Fase", "Waktu Siklus Estimasi (s)"
-            ],
-            "Keterangan": [
-                identitas["nama_simpang"], identitas["ruas_jalan"], identitas["kota"],
-                identitas["tanggal"].strftime("%d-%m-%Y"), identitas["jam_survei"],
-                identitas["cuaca"], identitas["surveyor"], ukuran_kota,
-                fase, round(c_s_awal, 1)
-            ]
-        })
-
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df_identitas_excel.to_excel(writer, sheet_name="Identitas Survei", index=False)
-            df_awal.to_excel(writer, sheet_name="Kinerja Simpang", index=False)
-
-        st.download_button(
-            label="Download Hasil Perhitungan (.xlsx)",
-            data=buffer.getvalue(),
-            file_name=f"Kinerja_{identitas['nama_simpang'].replace(' ', '_') or 'Simpang'}_PKJI.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
     # ==========================================================
     # MODE 3: PERBANDINGAN TABEL HASIL PERTAMA & TABEL EVALUASI
     # ==========================================================
@@ -972,11 +1195,11 @@ else:
         df_pertama = st.session_state.hasil_pertama_df.copy()
 
         if "eval_wh_map" not in st.session_state:
-            st.session_state.eval_wh_map = {p: float(data_input[p]["w_H"]) for p in pendekat_list}
+            st.session_state.eval_wh_map = {p: float(data_input[p]["w_H"]) for p in PENDEKAT_LIST}
         if "eval_l_map" not in st.session_state:
-            st.session_state.eval_l_map = {p: float(data_input[p]["L"]) for p in pendekat_list}
+            st.session_state.eval_l_map = {p: float(data_input[p]["L"]) for p in PENDEKAT_LIST}
         if "eval_bk_map" not in st.session_state:
-            st.session_state.eval_bk_map = {p: float(data_input[p]["L_BKiJT"]) for p in pendekat_list}
+            st.session_state.eval_bk_map = {p: float(data_input[p]["L_BKiJT"]) for p in PENDEKAT_LIST}
 
         st.markdown("#### 1. Preset & Pengaturan Parameter Evaluasi")
         p_col1, p_col2, p_col3 = st.columns([2, 2, 1])
@@ -986,18 +1209,18 @@ else:
         with p_col1:
             if st.button(f"➕ Hijau +5s Pendekat DJ Tertinggi ({pendekat_dj_max})", use_container_width=True):
                 st.session_state.eval_wh_map[pendekat_dj_max] = round(st.session_state.eval_wh_map[pendekat_dj_max] + 5.0, 1)
-                for p in pendekat_list:
+                for p in PENDEKAT_LIST:
                     st.session_state[f"ev_wh_{p}"] = st.session_state.eval_wh_map[p]
                 st.rerun()
         with p_col2:
             if st.button(f"📐 Lebar +1,0m Pendekat DJ Tertinggi ({pendekat_dj_max})", use_container_width=True):
                 st.session_state.eval_l_map[pendekat_dj_max] = round(st.session_state.eval_l_map[pendekat_dj_max] + 1.0, 2)
-                for p in pendekat_list:
+                for p in PENDEKAT_LIST:
                     st.session_state[f"ev_l_{p}"] = st.session_state.eval_l_map[p]
                 st.rerun()
         with p_col3:
             if st.button("🔄 Reset", use_container_width=True):
-                for p in pendekat_list:
+                for p in PENDEKAT_LIST:
                     st.session_state.eval_wh_map[p] = float(data_input[p]["w_H"])
                     st.session_state.eval_l_map[p] = float(data_input[p]["L"])
                     st.session_state.eval_bk_map[p] = float(data_input[p]["L_BKiJT"])
@@ -1007,7 +1230,7 @@ else:
                 st.rerun()
 
         cols_p = st.columns(4)
-        for idx, p in enumerate(pendekat_list):
+        for idx, p in enumerate(PENDEKAT_LIST):
             with cols_p[idx]:
                 st.markdown(f"**Pendekat {p}**")
                 wh_val = st.number_input(
@@ -1033,7 +1256,7 @@ else:
                 st.session_state.eval_bk_map[p] = bk_val
 
         data_eval_input = {}
-        for p in pendekat_list:
+        for p in PENDEKAT_LIST:
             salinan = dict(data_input[p])
             salinan["L_BKiJT"] = st.session_state.eval_bk_map[p]
             data_eval_input[p] = salinan
@@ -1118,7 +1341,7 @@ else:
             abs(st.session_state.eval_wh_map[p] - data_input[p]["w_H"]) > 1e-9
             or abs(st.session_state.eval_l_map[p] - data_input[p]["L"]) > 1e-9
             or abs(st.session_state.eval_bk_map[p] - data_input[p]["L_BKiJT"]) > 1e-9
-            for p in pendekat_list
+            for p in PENDEKAT_LIST
         )
 
         if not ada_perubahan:
