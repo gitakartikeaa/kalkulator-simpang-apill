@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import io
+import html as html_lib
 from datetime import date
 
 # ==========================================
@@ -15,6 +16,9 @@ st.set_page_config(
 )
 
 # Inisialisasi Session State
+if "tema_gelap" not in st.session_state:
+    st.session_state.tema_gelap = False
+
 if "identitas_tersimpan" not in st.session_state:
     st.session_state.identitas_tersimpan = False
 
@@ -40,13 +44,259 @@ if "rumus_terpilih" not in st.session_state:
 
 
 # ==========================================
+# TEMA WARNA (TERANG: BIRU LANGIT + CREAM/PUTIH | GELAP: NAVY)
+# ==========================================
+def terapkan_tema(is_dark: bool):
+    if is_dark:
+        palet = {
+            "bg_main": "#0A1128",
+            "bg_secondary": "#111D3E",
+            "bg_card": "#15254E",
+            "border": "#263D73",
+            "primary": "#38BDF8",
+            "primary_hover": "#0EA5E9",
+            "primary_text": "#061026",
+            "text_main": "#F1F5F9",
+            "text_muted": "#94A3B8",
+            "table_head_bg": "#1B3168",
+            "table_head_text": "#E0F2FE",
+            "table_row_even": "#0F1B3A",
+            "table_row_odd": "#14234B",
+            "table_hover": "#1E3570",
+            "chart_bg": "#111D3E",
+            "chart_text": "#F1F5F9",
+            "chart_grid": "#263D73"
+        }
+    else:
+        palet = {
+            "bg_main": "#FBF9F5",
+            "bg_secondary": "#F2EFE9",
+            "bg_card": "#FFFFFF",
+            "border": "#D6E4F0",
+            "primary": "#0284C7",
+            "primary_hover": "#0369A1",
+            "primary_text": "#FFFFFF",
+            "text_main": "#0F172A",
+            "text_muted": "#475569",
+            "table_head_bg": "#0284C7",
+            "table_head_text": "#FFFFFF",
+            "table_row_even": "#FFFFFF",
+            "table_row_odd": "#F3F8FC",
+            "table_hover": "#E0F2FE",
+            "chart_bg": "#FFFFFF",
+            "chart_text": "#0F172A",
+            "chart_grid": "#CBD5E1"
+        }
+
+    st.markdown(
+        f"""
+        <style>
+        /* Latar Utama & Sidebar */
+        .stApp {{
+            background-color: {palet['bg_main']};
+            color: {palet['text_main']};
+        }}
+        [data-testid="stSidebar"] {{
+            background-color: {palet['bg_secondary']};
+            border-right: 1px solid {palet['border']};
+        }}
+        [data-testid="stSidebar"] * {{
+            color: {palet['text_main']} !important;
+        }}
+        header[data-testid="stHeader"] {{
+            background-color: {palet['bg_main']};
+        }}
+
+        /* Tipografi */
+        h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stCaption {{
+            color: {palet['text_main']};
+        }}
+
+        /* Kartu Metrik KPI */
+        [data-testid="stMetric"] {{
+            background-color: {palet['bg_card']};
+            border: 1px solid {palet['border']};
+            border-left: 5px solid {palet['primary']};
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }}
+        [data-testid="stMetricLabel"] p {{
+            color: {palet['text_muted']} !important;
+            font-weight: 600;
+        }}
+        [data-testid="stMetricValue"] {{
+            color: {palet['text_main']} !important;
+        }}
+
+        /* Form & Container */
+        [data-testid="stForm"] {{
+            background-color: {palet['bg_card']};
+            border: 1px solid {palet['border']};
+            border-radius: 14px;
+            padding: 24px;
+        }}
+
+        /* Tombol */
+        .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {{
+            border-radius: 10px;
+            border: 1px solid {palet['border']};
+            background-color: {palet['bg_card']};
+            color: {palet['text_main']};
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }}
+        .stButton > button:hover, .stFormSubmitButton > button:hover, .stDownloadButton > button:hover {{
+            border-color: {palet['primary']};
+            background-color: {palet['primary']};
+            color: {palet['primary_text']} !important;
+        }}
+        button[kind="primary"] {{
+            background-color: {palet['primary']} !important;
+            color: {palet['primary_text']} !important;
+            border: none !important;
+        }}
+        button[kind="primary"]:hover {{
+            background-color: {palet['primary_hover']} !important;
+        }}
+
+        /* Radio Mode Navigasi */
+        div[role="radiogroup"] {{
+            background-color: {palet['bg_card']};
+            border: 1px solid {palet['border']};
+            border-radius: 12px;
+            padding: 8px 14px;
+        }}
+
+        /* Tabs */
+        button[data-baseweb="tab"] {{
+            color: {palet['text_muted']} !important;
+            font-weight: 600;
+        }}
+        button[data-baseweb="tab"][aria-selected="true"] {{
+            color: {palet['primary']} !important;
+            border-bottom-color: {palet['primary']} !important;
+        }}
+
+        /* Tabel Kustom Rapi & Modern */
+        .pkji-table-wrap {{
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid {palet['border']};
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            margin: 10px 0 18px 0;
+        }}
+        table.pkji-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.90rem;
+            font-variant-numeric: tabular-nums;
+        }}
+        table.pkji-table thead th {{
+            background-color: {palet['table_head_bg']};
+            color: {palet['table_head_text']};
+            font-weight: 700;
+            text-align: center;
+            padding: 12px 10px;
+            border-bottom: 2px solid {palet['border']};
+            white-space: nowrap;
+        }}
+        table.pkji-table tbody tr:nth-child(even) {{
+            background-color: {palet['table_row_even']};
+        }}
+        table.pkji-table tbody tr:nth-child(odd) {{
+            background-color: {palet['table_row_odd']};
+        }}
+        table.pkji-table tbody tr:hover {{
+            background-color: {palet['table_hover']};
+        }}
+        table.pkji-table tbody td {{
+            color: {palet['text_main']};
+            padding: 10px 10px;
+            border-bottom: 1px solid {palet['border']};
+            text-align: center;
+            white-space: nowrap;
+        }}
+        table.pkji-table tbody td:first-child {{
+            font-weight: 700;
+            text-align: left;
+            padding-left: 14px;
+        }}
+
+        /* Badge Status & LOS */
+        .badge {{
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.80rem;
+        }}
+        .badge-ok {{ background-color: #DCFCE7; color: #166534; }}
+        .badge-warn {{ background-color: #FEF3C7; color: #92400E; }}
+        .badge-bad {{ background-color: #FEE2E2; color: #991B1B; }}
+        .badge-info {{ background-color: #E0F2FE; color: #075985; }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    return palet
+
+
+def render_tabel_cantik(df: pd.DataFrame, format_cols: dict = None):
+    """Merender DataFrame menjadi tabel HTML berdesain rapi dengan badge status otomatis."""
+    format_cols = format_cols or {}
+    headers_html = "".join(f"<th>{html_lib.escape(str(col))}</th>" for col in df.columns)
+
+    rows_html = []
+    for _, row in df.iterrows():
+        cells = []
+        for col in df.columns:
+            val = row[col]
+            col_str = str(col)
+
+            if col_str in ("LOS", "LOS Awal", "LOS Evaluasi") and str(val) in ("A", "B", "C", "D", "E", "F"):
+                huruf = str(val)
+                cls = "badge-ok" if huruf in ("A", "B") else ("badge-warn" if huruf in ("C", "D") else "badge-bad")
+                cell_content = f'<span class="badge {cls}">{huruf}</span>'
+            elif col_str in ("DJ", "DJ Awal", "DJ Eval", "DJ Evaluasi") and isinstance(val, (int, float)):
+                cls = "badge-bad" if val > 0.85 else ("badge-warn" if val > 0.75 else "badge-ok")
+                cell_content = f'<span class="badge {cls}">{val:.3f}</span>'
+            elif col_str == "Status DJ":
+                cls = "badge-bad" if "Kritis" in str(val) else "badge-ok"
+                cell_content = f'<span class="badge {cls}">{html_lib.escape(str(val))}</span>'
+            elif col_str in ("ΔDJ", "ΔPA (m)", "ΔTundaan") and isinstance(val, (int, float)):
+                fmt = format_cols.get(col_str, "{:+.3f}" if col_str == "ΔDJ" else "{:+.2f}")
+                teks = fmt.format(val)
+                cls = "badge-ok" if val < 0 else ("badge-bad" if val > 0 else "badge-info")
+                cell_content = f'<span class="badge {cls}">{teks}</span>'
+            elif col_str in format_cols and isinstance(val, (int, float)):
+                cell_content = html_lib.escape(format_cols[col_str].format(val))
+            else:
+                cell_content = html_lib.escape(str(val))
+
+            cells.append(f"<td>{cell_content}</td>")
+        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+
+    tabel_html = f"""
+    <div class="pkji-table-wrap">
+        <table class="pkji-table">
+            <thead><tr>{headers_html}</tr></thead>
+            <tbody>{''.join(rows_html)}</tbody>
+        </table>
+    </div>
+    """
+    st.markdown(tabel_html, unsafe_allow_html=True)
+
+
+# ==========================================
 # FUNGSI BANTUAN PERHITUNGAN PKJI
 # ==========================================
 def get_emp_pkji(tipe_pendekat):
     """Mengembalikan nilai eMP standar PKJI berdasarkan tipe pendekat ('P' atau 'O')."""
     if tipe_pendekat == "P":
         return {"MP": 1.0, "KB": 1.3, "SM": 0.2, "KTB": 0.0}
-    else:  # 'O' (Terlawan)
+    else:
         return {"MP": 1.0, "KB": 1.3, "SM": 0.4, "KTB": 0.0}
 
 
@@ -64,7 +314,7 @@ def hitung_konversi_smp(data_input, custom_emp_map):
         rows.append({
             "Pendekat": p,
             "Tipe": d["tipe"],
-            "eMP (MP/KB/SM/KTB)": f"{emp['MP']:.2f} / {emp['KB']:.2f} / {emp['SM']:.2f} / {emp['KTB']:.2f}",
+            "eMP (MP / KB / SM / KTB)": f"{emp['MP']:.2f} / {emp['KB']:.2f} / {emp['SM']:.2f} / {emp['KTB']:.2f}",
             "MP (smp/jam)": round(q_mp, 2),
             "KB (smp/jam)": round(q_kb, 2),
             "SM (smp/jam)": round(q_sm, 2),
@@ -122,7 +372,6 @@ def hitung_kinerja_lengkap(
         C = J * rasio_hijau if c_s > 0 else 1.0
         DJ = (Q_smp / C) if C > 0 else 0.0
 
-        # Jumlah antrian (NQ1 & NQ2) dan Panjang Antrian (PA)
         if DJ > 0.5 and C > 0:
             NQ1 = 0.25 * C * ((DJ - 1.0) + np.sqrt((DJ - 1.0) ** 2 + (8.0 * (DJ - 0.5) / C)))
         else:
@@ -133,13 +382,11 @@ def hitung_kinerja_lengkap(
         NQ_total = NQ1 + NQ2
         PA = (NQ_total * 20.0) / L_E if L_E > 0 else 0.0
 
-        # Rasio Kendaraan Henti (RKH) & Tundaan (T_LL, T_G, T_total)
         RKH = min(1.0, 0.9 * ((1.0 - rasio_hijau) / penyebut_antrian))
         T_LL = ((0.5 * c_s * ((1.0 - rasio_hijau) ** 2)) / penyebut_antrian) + ((NQ1 * 3600.0 / C) if C > 0 else 0.0)
         T_G = (1.0 - RKH) * 4.0 + RKH * 6.0
         T_total = T_LL + T_G
 
-        # Penentuan LOS
         if T_total <= 5.0:
             los = "A"
         elif T_total <= 15.0:
@@ -283,12 +530,25 @@ def tampilkan_detail_rumus(nama_rumus, det):
         )
 
 
+# Terapkan Tema Aktif
+palet_aktif = terapkan_tema(st.session_state.tema_gelap)
+
+
 # ==========================================
 # HALAMAN AWAL: IDENTITAS SURVEI & SIMPANG
 # ==========================================
 if not st.session_state.identitas_tersimpan:
-    st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
-    st.caption("Silakan lengkapi data identitas survei terlebih dahulu sebelum membuka menu kalkulasi.")
+    col_top1, col_top2 = st.columns([5, 1])
+    with col_top1:
+        st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
+        st.caption("Silakan lengkapi data identitas survei terlebih dahulu sebelum membuka menu kalkulasi.")
+    with col_top2:
+        st.markdown("")
+        label_tema = "☀️ Mode Terang" if st.session_state.tema_gelap else "🌙 Mode Gelap"
+        if st.button(label_tema, key="toggle_tema_awal", use_container_width=True):
+            st.session_state.tema_gelap = not st.session_state.tema_gelap
+            st.rerun()
+
     st.divider()
 
     st.subheader("📋 Data Identitas Simpang & Survei")
@@ -357,12 +617,18 @@ if not st.session_state.identitas_tersimpan:
 else:
     identitas = st.session_state.data_identitas
 
-    c_h1, c_h2 = st.columns([5, 1])
+    c_h1, c_h2, c_h3 = st.columns([4.5, 1.1, 1.1])
     with c_h1:
         st.title("🚦 Kalkulator Kinerja Simpang APILL (PKJI)")
     with c_h2:
         st.markdown("")
-        if st.button("✏️ Ubah Identitas", use_container_width=True):
+        label_tema = "☀️ Terang" if st.session_state.tema_gelap else "🌙 Gelap"
+        if st.button(label_tema, key="toggle_tema_utama", use_container_width=True):
+            st.session_state.tema_gelap = not st.session_state.tema_gelap
+            st.rerun()
+    with c_h3:
+        st.markdown("")
+        if st.button("✏️ Identitas", use_container_width=True):
             st.session_state.identitas_tersimpan = False
             st.rerun()
 
@@ -451,6 +717,21 @@ else:
         st.session_state.hasil_pertama_df = df_awal.copy()
         st.session_state.hasil_pertama_detail = detail_awal
 
+    format_tabel_lengkap = {
+        "L_E (m)": "{:.2f}",
+        "w_H (s)": "{:.1f}",
+        "c_s (s)": "{:.1f}",
+        "Q (smp/jam)": "{:,.1f}",
+        "J_0 (smp/jam)": "{:,.1f}",
+        "J (smp/jam)": "{:,.1f}",
+        "C (smp/jam)": "{:,.1f}",
+        "DJ": "{:.3f}",
+        "NQ_total (smp)": "{:.2f}",
+        "PA (m)": "{:.1f}",
+        "RKH": "{:.3f}",
+        "Tundaan (s/smp)": "{:.2f}"
+    }
+
     # ==========================================================
     # MODE 1: KONVERSI DATA MENTAH KE SATUAN SMP SAJA
     # ==========================================================
@@ -462,7 +743,16 @@ else:
             st.warning("Mode **eMP Custom** aktif: nilai eMP disesuaikan dengan input mandiri Anda di sidebar.")
 
         df_konversi = hitung_konversi_smp(data_input, custom_emp_map)
-        st.dataframe(df_konversi, use_container_width=True, hide_index=True)
+        render_tabel_cantik(
+            df_konversi,
+            format_cols={
+                "MP (smp/jam)": "{:,.2f}",
+                "KB (smp/jam)": "{:,.2f}",
+                "SM (smp/jam)": "{:,.2f}",
+                "KTB (smp/jam)": "{:,.2f}",
+                "Total Arus Q (smp/jam)": "{:,.2f}"
+            }
+        )
 
         total_all_smp = df_konversi["Total Arus Q (smp/jam)"].sum()
         st.metric("Total Arus Lalu Lintas Seluruh Pendekat", f"{total_all_smp:,.2f} smp/jam")
@@ -487,21 +777,7 @@ else:
         k4.metric("LOS Terburuk", f"{df_awal['LOS'].max()}")
 
         st.markdown("### 📋 Tabel Rekapitulasi Perhitungan Simpang")
-        styled_df = df_awal.style.format({
-            "L_E (m)": "{:.2f}",
-            "w_H (s)": "{:.1f}",
-            "c_s (s)": "{:.1f}",
-            "Q (smp/jam)": "{:.1f}",
-            "J_0 (smp/jam)": "{:.1f}",
-            "J (smp/jam)": "{:.1f}",
-            "C (smp/jam)": "{:.1f}",
-            "DJ": "{:.3f}",
-            "NQ_total (smp)": "{:.2f}",
-            "PA (m)": "{:.1f}",
-            "RKH": "{:.3f}",
-            "Tundaan (s/smp)": "{:.2f}"
-        })
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        render_tabel_cantik(df_awal, format_cols=format_tabel_lengkap)
 
         st.markdown("### 📐 Cek Detail Rumus per Perhitungan (Klik Tombol Rumus)")
         pendekat_aktif = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Angka:", pendekat_list)
@@ -531,15 +807,28 @@ else:
 
         st.markdown("### 📈 Grafik Perbandingan Kinerja per Pendekat")
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-        colors = ["#e74c3c" if x > 0.85 else "#2b6cb0" for x in df_awal["DJ"]]
+        fig.patch.set_facecolor(palet_aktif["chart_bg"])
+        for ax in (ax1, ax2):
+            ax.set_facecolor(palet_aktif["chart_bg"])
+            ax.tick_params(colors=palet_aktif["chart_text"])
+            ax.xaxis.label.set_color(palet_aktif["chart_text"])
+            ax.yaxis.label.set_color(palet_aktif["chart_text"])
+            ax.title.set_color(palet_aktif["chart_text"])
+            ax.grid(axis="y", linestyle=":", alpha=0.45, color=palet_aktif["chart_grid"])
+            for spine in ax.spines.values():
+                spine.set_color(palet_aktif["chart_grid"])
+
+        colors = ["#EF4444" if x > 0.85 else palet_aktif["primary"] for x in df_awal["DJ"]]
         ax1.bar(df_awal["Pendekat"], df_awal["DJ"], color=colors)
-        ax1.axhline(0.85, color="red", linestyle="--", label="Batas Kritis DJ = 0,85")
+        ax1.axhline(0.85, color="#EF4444", linestyle="--", label="Batas Kritis DJ = 0,85")
         ax1.set_title("Derajat Kejenuhan (DJ) per Pendekat")
         ax1.set_ylabel("DJ")
         ax1.set_ylim(0, max(1.0, df_awal["DJ"].max() * 1.2))
-        ax1.legend()
+        leg = ax1.legend()
+        for text in leg.get_texts():
+            text.set_color(palet_aktif["chart_text"])
 
-        ax2.bar(df_awal["Pendekat"], df_awal["PA (m)"], color="#2f855a")
+        ax2.bar(df_awal["Pendekat"], df_awal["PA (m)"], color="#10B981")
         ax2.set_title("Panjang Antrian (PA) per Pendekat")
         ax2.set_ylabel("Panjang Antrian (meter)")
 
@@ -603,9 +892,17 @@ else:
         st.markdown("#### 1. Pengaturan Parameter Evaluasi")
         col_ev1, col_ev2 = st.columns(2)
         with col_ev1:
-            tambah_wh = st.slider("Penyesuaian Waktu Hijau Semua Pendekat (detik)", min_value=-15.0, max_value=20.0, value=0.0, step=1.0)
+            tambah_wh = st.slider(
+                "Penyesuaian Waktu Hijau Semua Pendekat (detik)",
+                min_value=-15.0, max_value=20.0, value=0.0, step=1.0
+            )
         with col_ev2:
-            tambah_lebar = st.slider("Penyesuaian Lebar Pendekat L Semua Lengan (m)", min_value=-2.0, max_value=4.0, value=0.0, step=0.5)
+            tambah_lebar = st.slider(
+                "Penyesuaian Lebar Pendekat L Semua Lengan (m)",
+                min_value=-2.0, max_value=4.0, value=0.0, step=0.5
+            )
+
+        tampilkan_semua_kolom = st.checkbox("Tampilkan semua kolom detail (16 kolom)", value=False)
 
         override_wH = {p: max(5.0, data_input[p]["w_H"] + tambah_wh) for p in pendekat_list}
         override_L = {p: max(2.0, data_input[p]["L"] + tambah_lebar) for p in pendekat_list}
@@ -614,30 +911,89 @@ else:
             data_input, custom_emp_map, fase, w_MS, w_K, F_UK,
             override_wH=override_wH, override_L=override_L
         )
-
         df_pertama = st.session_state.hasil_pertama_df.copy()
 
-        st.markdown("#### 2. Tabel Hasil Hitungan Pertama (Baseline)")
-        st.dataframe(df_pertama, use_container_width=True, hide_index=True)
+        st.markdown("#### 2. Ringkasan Perubahan Kinerja")
+        delta_dj = df_evaluasi["DJ"].mean() - df_pertama["DJ"].mean()
+        delta_pa = df_evaluasi["PA (m)"].max() - df_pertama["PA (m)"].max()
+        delta_t = df_evaluasi["Tundaan (s/smp)"].mean() - df_pertama["Tundaan (s/smp)"].mean()
 
-        st.markdown(f"#### 3. Tabel Hasil Evaluasi (Waktu Siklus Evaluasi: {c_s_eval:.1f} detik)")
-        st.dataframe(df_evaluasi, use_container_width=True, hide_index=True)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Rata-rata DJ (Evaluasi)", f"{df_evaluasi['DJ'].mean():.3f}", f"{delta_dj:+.3f}", delta_color="inverse")
+        m2.metric("Max PA (Evaluasi)", f"{df_evaluasi['PA (m)'].max():.1f} m", f"{delta_pa:+.1f} m", delta_color="inverse")
+        m3.metric("Rata-rata Tundaan", f"{df_evaluasi['Tundaan (s/smp)'].mean():.2f} s/smp", f"{delta_t:+.2f} s/smp", delta_color="inverse")
+        m4.metric("LOS (Awal → Evaluasi)", f"{df_pertama['LOS'].max()} → {df_evaluasi['LOS'].max()}")
 
-        st.markdown("#### 4. Tabel Perbandingan (Evaluasi vs Hitungan Pertama)")
+        st.markdown("#### 3. Tabel Perbandingan")
+        tab_selisih, tab_awal, tab_eval = st.tabs([
+            "📊 Selisih (Evaluasi vs Awal)",
+            "📌 Hitungan Pertama",
+            "🛠️ Hasil Evaluasi"
+        ])
+
         df_banding = pd.DataFrame({
             "Pendekat": df_pertama["Pendekat"],
             "DJ Awal": df_pertama["DJ"],
-            "DJ Evaluasi": df_evaluasi["DJ"],
-            "Selisih DJ (ΔDJ)": (df_evaluasi["DJ"] - df_pertama["DJ"]).round(3),
+            "DJ Eval": df_evaluasi["DJ"],
+            "ΔDJ": (df_evaluasi["DJ"] - df_pertama["DJ"]).round(3),
             "PA Awal (m)": df_pertama["PA (m)"],
-            "PA Evaluasi (m)": df_evaluasi["PA (m)"],
-            "Selisih PA (Δm)": (df_evaluasi["PA (m)"] - df_pertama["PA (m)"]).round(1),
-            "Tundaan Awal (s/smp)": df_pertama["Tundaan (s/smp)"],
-            "Tundaan Evaluasi (s/smp)": df_evaluasi["Tundaan (s/smp)"],
+            "PA Eval (m)": df_evaluasi["PA (m)"],
+            "ΔPA (m)": (df_evaluasi["PA (m)"] - df_pertama["PA (m)"]).round(1),
+            "Tundaan Awal": df_pertama["Tundaan (s/smp)"],
+            "Tundaan Eval": df_evaluasi["Tundaan (s/smp)"],
+            "ΔTundaan": (df_evaluasi["Tundaan (s/smp)"] - df_pertama["Tundaan (s/smp)"]).round(2),
             "LOS Awal": df_pertama["LOS"],
             "LOS Evaluasi": df_evaluasi["LOS"]
         })
-        st.dataframe(df_banding, use_container_width=True, hide_index=True)
+
+        kolom_ringkas = ["Pendekat", "Tipe", "L_E (m)", "w_H (s)", "c_s (s)", "Q (smp/jam)", "C (smp/jam)", "DJ", "PA (m)", "Tundaan (s/smp)", "LOS"]
+
+        with tab_selisih:
+            render_tabel_cantik(
+                df_banding,
+                format_cols={
+                    "PA Awal (m)": "{:.1f}",
+                    "PA Eval (m)": "{:.1f}",
+                    "ΔPA (m)": "{:+.1f}",
+                    "Tundaan Awal": "{:.2f}",
+                    "Tundaan Eval": "{:.2f}",
+                    "ΔTundaan": "{:+.2f}",
+                    "ΔDJ": "{:+.3f}"
+                }
+            )
+
+        with tab_awal:
+            render_tabel_cantik(
+                df_pertama if tampilkan_semua_kolom else df_pertama[kolom_ringkas],
+                format_cols=format_tabel_lengkap
+            )
+
+        with tab_eval:
+            st.caption(f"Waktu siklus evaluasi: **{c_s_eval:.1f} detik**")
+            render_tabel_cantik(
+                df_evaluasi if tampilkan_semua_kolom else df_evaluasi[kolom_ringkas],
+                format_cols=format_tabel_lengkap
+            )
+
+        st.markdown("#### 4. Penjelasan & Masukan Evaluasi")
+        if tambah_wh == 0 and tambah_lebar == 0:
+            st.info(
+                "Saat ini parameter evaluasi masih **0** (sama dengan hitungan pertama). "
+                "Geser **Penyesuaian Waktu Hijau** atau **Penyesuaian Lebar Pendekat** di atas untuk menguji skenario perbaikan."
+            )
+        else:
+            if delta_dj < 0 and delta_pa < 0 and delta_t < 0:
+                st.success("Skenario evaluasi **memperbaiki kinerja** (DJ, panjang antrian, dan tundaan rata-rata sama-sama menurun).")
+            elif delta_dj > 0 or delta_t > 0:
+                st.warning("Perlu dicermati: ada parameter yang **meningkat** (misalnya akibat perubahan waktu siklus atau alokasi hijau). Bandingkan tiap pendekat pada tabel selisih.")
+            else:
+                st.info("Perubahan berdampak bervariasi antar pendekat; periksa kolom `ΔDJ`, `ΔPA (m)`, dan `ΔTundaan` pada tabel di atas.")
+
+        st.markdown(
+            "* **Waktu Hijau (w_H) & Siklus (c_s):** Penambahan hijau membantu meloloskan antrian lebih lama, tetapi memengaruhi panjang siklus dan porsi hijau lengan lain. Uji perubahan bertahap sambil memantau tundaan.\n"
+            "* **Lebar Pendekat (L_E):** Pelebaran efektif menaikkan kapasitas (`C`) dan menurunkan antrian (`PA`), namun harus disesuaikan dengan ketersediaan ruang jalan dan kondisi `L_BKiJT`.\n"
+            "* **Tundaan & LOS:** Meski nilai `DJ` masih di bawah batas kritis `0,85`, nilai tundaan dapat membuat tingkat pelayanan berada di **LOS C atau D**; evaluasi pengaturan fase dan waktu sinyal tetap relevan untuk kenyamanan lalu lintas."
+        )
 
     # ==========================================================
     # MODE 4: RUMUS-RUMUS YANG DIGUNAKAN SESUAI PKJI & MATERI
@@ -684,4 +1040,4 @@ else:
                 "Arus terhambat/macet total, tundaan sangat besar"
             ]
         })
-        st.dataframe(df_los_ref, use_container_width=True, hide_index=True)
+        render_tabel_cantik(df_los_ref)
