@@ -28,7 +28,8 @@ QUOTES_ANTI_BURNOUT = [
     "Seperti simpang yang butuh waktu hilang agar pergerakan tertib, otakmu juga butuh jeda singkat supaya tetap jernih.",
     "Angka dan rumus hanyalah alat bantu; ketekunanmu memahami prosesnya adalah bekal utama yang nggak akan sia-sia.",
     "Kalau mulai pusing menatap layar dan tabel, menjauh 5 menit dari laptop lalu kembali dengan kepala dingin sering kali mempercepat segalanya.",
-    "Progres kecil yang konsisten mengalahkan kelelahan akibat memforsir diri sekaligus. Kamu sudah melangkah sejauh ini—keren!"
+    "Progres kecil yang konsisten mengalahkan kelelahan akibat memforsir diri sekaligus. Kamu sudah melangkah sejauh ini—keren!",
+    "Satu fase selesai, satu langkah tercapai. Nggak perlu ngebut sampai kehabisan napas—yang penting terus jalan."
 ]
 
 DEFAULT_IDENTITAS = {
@@ -69,12 +70,16 @@ def simpan_riwayat_disk(riwayat_list):
         pass
 
 
+def pilih_quote_berbeda(quote_saat_ini=None):
+    kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_saat_ini] or QUOTES_ANTI_BURNOUT
+    return random.choice(kandidat)
+
+
 # Inisialisasi Session State
 if "quote_sesi_ini" not in st.session_state:
     riwayat_q = muat_riwayat_disk()
     quote_terakhir = riwayat_q[-1].get("last_quote") if riwayat_q else None
-    kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_terakhir] or QUOTES_ANTI_BURNOUT
-    st.session_state.quote_sesi_ini = random.choice(kandidat)
+    st.session_state.quote_sesi_ini = pilih_quote_berbeda(quote_terakhir)
 
 if "tema_gelap" not in st.session_state:
     st.session_state.tema_gelap = False
@@ -130,7 +135,9 @@ if "rumus_terpilih" not in st.session_state:
 
 
 # ==========================================
-# TEMA WARNA & BACKGROUND TRANSPORTASI HALUS
+# TEMA WARNA & FRAME TRANSPORTASI HALUS
+# Terang: Merino (#F5EEDD), Rock Blue (#84B3CE), Venice Blue (#16587B)
+# Gelap: Navy
 # ==========================================
 def terapkan_tema(is_dark: bool):
     if is_dark:
@@ -159,8 +166,10 @@ def terapkan_tema(is_dark: bool):
             "chart_bg": "#0E1A38",
             "chart_text": "#F5EEDD",
             "chart_grid": "#2A4785",
-            "road_line": "rgba(132, 179, 206, 0.045)",
-            "road_dash": "rgba(245, 238, 221, 0.04)"
+            "road_line": "rgba(132, 179, 206, 0.04)",
+            "road_dash": "rgba(245, 238, 221, 0.035)",
+            "frame_stroke": "rgba(132, 179, 206, 0.12)",
+            "frame_road": "rgba(132, 179, 206, 0.08)"
         }
     else:
         palet = {
@@ -188,8 +197,10 @@ def terapkan_tema(is_dark: bool):
             "chart_bg": "#FFFFFF",
             "chart_text": "#0E3950",
             "chart_grid": "#9BBFD4",
-            "road_line": "rgba(22, 88, 123, 0.05)",
-            "road_dash": "rgba(132, 179, 206, 0.14)"
+            "road_line": "rgba(22, 88, 123, 0.045)",
+            "road_dash": "rgba(132, 179, 206, 0.12)",
+            "frame_stroke": "rgba(22, 88, 123, 0.13)",
+            "frame_road": "rgba(22, 88, 123, 0.09)"
         }
 
     st.markdown(
@@ -206,6 +217,77 @@ def terapkan_tema(is_dark: bool):
             color: {palet['text_main']} !important;
         }}
 
+        /* Pastikan konten utama berada di atas frame dekoratif transportasi */
+        [data-testid="stAppViewContainer"] > .main {{
+            position: relative;
+            z-index: 1;
+        }}
+
+        /* Frame dekoratif bertema transportasi (mobil, rambu, marka jalan) di tepi layar */
+        .transport-frame-layer {{
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }}
+        .transport-frame-border {{
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            bottom: 12px;
+            left: 12px;
+            border: 1.5px dashed {palet['frame_road']};
+            border-radius: 18px;
+            pointer-events: none;
+        }}
+        .tf-item {{
+            position: fixed;
+            pointer-events: none;
+        }}
+        .tf-car-tl {{
+            top: 22px;
+            left: 24px;
+            width: 84px;
+            height: 44px;
+        }}
+        .tf-car-tr {{
+            top: 24px;
+            right: 24px;
+            width: 84px;
+            height: 44px;
+        }}
+        .tf-sign-bl {{
+            bottom: 20px;
+            left: 24px;
+            width: 68px;
+            height: 68px;
+        }}
+        .tf-car-br {{
+            bottom: 22px;
+            right: 24px;
+            width: 92px;
+            height: 46px;
+        }}
+        .tf-road-bottom {{
+            left: 105px;
+            right: 126px;
+            bottom: 18px;
+            height: 18px;
+            border-top: 1.5px solid {palet['frame_road']};
+            border-bottom: 1.5px solid {palet['frame_road']};
+            background-image: repeating-linear-gradient(
+                to right,
+                {palet['frame_stroke']} 0px,
+                {palet['frame_stroke']} 18px,
+                transparent 18px,
+                transparent 34px
+            );
+            background-position: left center;
+            background-size: 34px 2px;
+            background-repeat: repeat-x;
+        }}
+
         [data-testid="stHeader"] {{
             background-color: transparent !important;
         }}
@@ -213,6 +295,7 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{
             background-color: {palet['bg_secondary']} !important;
             border-right: 2px solid {palet['border']} !important;
+            z-index: 2;
         }}
 
         .stApp p, .stApp label, .stApp li,
@@ -227,7 +310,7 @@ def terapkan_tema(is_dark: bool):
             color: {palet['text_main']} !important;
         }}
 
-        /* Kotak Substitusi Hitungan Kustom (anti-samar di semua tema) */
+        /* Kotak Substitusi Hitungan Kustom */
         .calc-box {{
             background-color: {palet['bg_calc']} !important;
             border: 1.5px solid {palet['border']} !important;
@@ -267,7 +350,6 @@ def terapkan_tema(is_dark: bool):
             opacity: 1 !important;
         }}
 
-        /* Input & Selectbox: cegah border/outline merah marun */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
@@ -460,6 +542,41 @@ def terapkan_tema(is_dark: bool):
             margin: 0;
         }}
         </style>
+
+        <!-- Elemen Frame Transportasi Halus (tidak menutupi konten utama) -->
+        <div class="transport-frame-layer" aria-hidden="true">
+            <div class="transport-frame-border"></div>
+            <div class="tf-road-bottom"></div>
+
+            <!-- Mobil Kiri Atas -->
+            <svg class="tf-item tf-car-tl" viewBox="0 0 120 60" fill="none">
+                <path d="M18 38L26 20C28 16 32 14 36 14H74C78 14 82 16 85 20L98 32H106C110 32 113 35 113 39V44H102C101 38 96 34 90 34C84 34 79 38 78 44H42C41 38 36 34 30 34C24 34 19 38 18 44H10V39C10 35 13 33 18 38Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="30" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="90" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <path d="M31 20H72L80 31H26L31 20Z" stroke="{palet['frame_road']}" stroke-width="1.6" stroke-linejoin="round"/>
+            </svg>
+
+            <!-- Mobil Kanan Atas -->
+            <svg class="tf-item tf-car-tr" viewBox="0 0 120 60" fill="none">
+                <path d="M102 38L94 20C92 16 88 14 84 14H46C42 14 38 16 35 20L22 32H14C10 32 7 35 7 39V44H18C19 38 24 34 30 34C36 34 41 38 42 44H78C79 38 84 34 90 34C96 34 101 38 102 44H110V39C110 35 107 33 102 38Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="30" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="90" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+            </svg>
+
+            <!-- Rambu Lalu Lintas Kiri Bawah -->
+            <svg class="tf-item tf-sign-bl" viewBox="0 0 80 80" fill="none">
+                <polygon points="40,10 68,38 40,66 12,38" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M40 24V50M32 32L40 24L48 32" stroke="{palet['frame_road']}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+            <!-- Kendaraan/Truk Kecil Kanan Bawah -->
+            <svg class="tf-item tf-car-br" viewBox="0 0 130 62" fill="none">
+                <rect x="14" y="16" width="66" height="24" rx="4" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <path d="M80 23H98L110 33V40H80V23Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="32" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="96" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+            </svg>
+        </div>
         """,
         unsafe_allow_html=True
     )
@@ -1588,11 +1705,19 @@ else:
         })
         render_tabel_cantik(df_los_ref)
 
-        st.markdown(
-            f"""
-            <div class="quote-box">
-                <p>🌱 <strong>Catatan Penyemangat:</strong> “{html_lib.escape(st.session_state.quote_sesi_ini)}”</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        # Motivasi Anti-Burnout yang Bisa Diganti & Berubah Tiap Sesi
+        col_q_box, col_q_btn = st.columns([5.2, 1.3])
+        with col_q_box:
+            st.markdown(
+                f"""
+                <div class="quote-box">
+                    <p>🌱 <strong>Catatan Penyemangat:</strong> “{html_lib.escape(st.session_state.quote_sesi_ini)}”</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with col_q_btn:
+            st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Ganti Quote", key="btn_ganti_quote_m4", use_container_width=True):
+                st.session_state.quote_sesi_ini = pilih_quote_berbeda(st.session_state.quote_sesi_ini)
+                st.rerun()
