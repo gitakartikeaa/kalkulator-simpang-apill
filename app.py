@@ -71,7 +71,6 @@ def simpan_riwayat_disk(riwayat_list):
 
 # Inisialisasi Session State
 if "quote_sesi_ini" not in st.session_state:
-    # Pilih quote baru setiap kali sesi web dibuka ulang; hindari mengulang quote terakhir jika ada riwayat
     riwayat_q = muat_riwayat_disk()
     quote_terakhir = riwayat_q[-1].get("last_quote") if riwayat_q else None
     kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_terakhir] or QUOTES_ANTI_BURNOUT
@@ -132,8 +131,6 @@ if "rumus_terpilih" not in st.session_state:
 
 # ==========================================
 # TEMA WARNA & BACKGROUND TRANSPORTASI HALUS
-# Terang: Merino (#F5EEDD), Rock Blue (#84B3CE), Venice Blue (#16587B)
-# Gelap: Navy
 # ==========================================
 def terapkan_tema(is_dark: bool):
     if is_dark:
@@ -142,8 +139,8 @@ def terapkan_tema(is_dark: bool):
             "bg_secondary": "#0E1A38",
             "bg_card": "#13234A",
             "bg_input": "#0B1633",
-            "bg_code": "#0F1E42",
-            "code_text": "#F5EEDD",
+            "bg_calc": "#0E1C3D",
+            "calc_text": "#F5EEDD",
             "border": "#3B62A8",
             "primary": "#84B3CE",
             "primary_hover": "#679BB8",
@@ -171,8 +168,8 @@ def terapkan_tema(is_dark: bool):
             "bg_secondary": "#84B3CE",
             "bg_card": "#FFFFFF",
             "bg_input": "#FFFFFF",
-            "bg_code": "#F8FAFC",
-            "code_text": "#0E3950",
+            "bg_calc": "#FFFFFF",
+            "calc_text": "#0E3950",
             "border": "#16587B",
             "primary": "#16587B",
             "primary_hover": "#0F405A",
@@ -198,7 +195,6 @@ def terapkan_tema(is_dark: bool):
     st.markdown(
         f"""
         <style>
-        /* Background utama dengan pola marka jalan & koridor transportasi yang sangat halus */
         .stApp, [data-testid="stAppViewContainer"] {{
             background-color: {palet['bg_main']} !important;
             background-image:
@@ -219,7 +215,6 @@ def terapkan_tema(is_dark: bool):
             border-right: 2px solid {palet['border']} !important;
         }}
 
-        /* Seluruh teks utama & label (kecuali badge, delta metric, dan blok kode agar tidak tertimpa) */
         .stApp p, .stApp label, .stApp li,
         [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label,
         [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li,
@@ -228,20 +223,30 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stExpander"] summary span, [data-testid="stExpander"] summary p {{
             color: {palet['text_main']} !important;
         }}
-        .stApp span:not(.badge):not([data-testid="stMetricDelta"] span):not([data-testid="stCodeBlock"] span) {{
+        .stApp span:not(.badge):not([data-testid="stMetricDelta"] span):not(.calc-line *) {{
             color: {palet['text_main']} !important;
         }}
 
-        /* Blok st.code: kontras jelas di mode terang maupun gelap */
-        [data-testid="stCodeBlock"], [data-testid="stCodeBlock"] > div,
-        [data-testid="stCodeBlock"] pre, [data-testid="stCodeBlock"] code {{
-            background-color: {palet['bg_code']} !important;
-            color: {palet['code_text']} !important;
-            border: 1px solid {palet['border']} !important;
-            border-radius: 10px !important;
+        /* Kotak Substitusi Hitungan Kustom (anti-samar di semua tema) */
+        .calc-box {{
+            background-color: {palet['bg_calc']} !important;
+            border: 1.5px solid {palet['border']} !important;
+            border-left: 5px solid {palet['primary']} !important;
+            border-radius: 12px !important;
+            padding: 14px 18px !important;
+            margin: 10px 0 16px 0 !important;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+            font-size: 0.92rem !important;
+            line-height: 1.65 !important;
+            overflow-x: auto !important;
         }}
-        [data-testid="stCodeBlock"] span, [data-testid="stCodeBlock"] code * {{
-            color: {palet['code_text']} !important;
+        .calc-line, .calc-line span {{
+            color: {palet['calc_text']} !important;
+            font-weight: 600 !important;
+        }}
+        .calc-result, .calc-result span {{
+            color: {palet['primary']} !important;
+            font-weight: 800 !important;
         }}
 
         /* Pil Delta pada st.metric */
@@ -257,13 +262,12 @@ def terapkan_tema(is_dark: bool):
             font-weight: 800 !important;
         }}
 
-        /* Placeholder input */
         input::placeholder, textarea::placeholder {{
             color: {palet['placeholder']} !important;
             opacity: 1 !important;
         }}
 
-        /* Semua kolom input & selectbox (hindari warna merah marun saat fokus/hover) */
+        /* Input & Selectbox: cegah border/outline merah marun */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
@@ -274,15 +278,19 @@ def terapkan_tema(is_dark: bool):
             background-color: {palet['bg_input']} !important;
             color: {palet['text_main']} !important;
             border-color: {palet['border']} !important;
+            outline-color: {palet['primary']} !important;
         }}
+        [data-baseweb="select"] > div,
+        [data-baseweb="select"] > div:hover,
         [data-baseweb="select"] > div:focus-within,
         [data-baseweb="input"]:focus-within {{
             border-color: {palet['primary']} !important;
             box-shadow: 0 0 0 1px {palet['primary']} !important;
         }}
-        [data-baseweb="select"] span, [data-baseweb="select"] div,
+        [data-baseweb="select"] span, [data-baseweb="select"] div, [data-baseweb="select"] svg,
         [data-testid="stDateInput"] input {{
             color: {palet['text_main']} !important;
+            fill: {palet['text_main']} !important;
             -webkit-text-fill-color: {palet['text_main']} !important;
         }}
         [data-baseweb="popover"] ul, [data-baseweb="popover"] li, [role="listbox"] li {{
@@ -295,7 +303,6 @@ def terapkan_tema(is_dark: bool):
             border-color: {palet['border']} !important;
         }}
 
-        /* Kotak Info / Warning / Success / Error */
         [data-testid="stAlert"], [data-testid="stAlert"] > div,
         [data-testid="stNotification"], [data-testid="stNotification"] > div {{
             background-color: {palet['alert_bg']} !important;
@@ -307,14 +314,12 @@ def terapkan_tema(is_dark: bool):
             color: {palet['alert_text']} !important;
         }}
 
-        /* Expander */
         [data-testid="stExpander"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
             border-radius: 10px !important;
         }}
 
-        /* Kartu KPI */
         [data-testid="stMetric"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
@@ -331,7 +336,6 @@ def terapkan_tema(is_dark: bool):
             font-weight: 800 !important;
         }}
 
-        /* Form */
         [data-testid="stForm"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
@@ -339,7 +343,6 @@ def terapkan_tema(is_dark: bool):
             padding: 24px;
         }}
 
-        /* Tombol */
         .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {{
             border-radius: 10px;
             border: 1px solid {palet['border']} !important;
@@ -369,7 +372,6 @@ def terapkan_tema(is_dark: bool):
             color: {palet['primary_text']} !important;
         }}
 
-        /* Radio Navigasi */
         div[role="radiogroup"] {{
             background-color: {palet['bg_card']} !important;
             border: 1px solid {palet['border']} !important;
@@ -377,7 +379,6 @@ def terapkan_tema(is_dark: bool):
             padding: 8px 14px;
         }}
 
-        /* Tabs */
         button[data-baseweb="tab"] p {{
             color: {palet['text_muted']} !important;
             font-weight: 700 !important;
@@ -389,7 +390,6 @@ def terapkan_tema(is_dark: bool):
             border-bottom-color: {palet['primary']} !important;
         }}
 
-        /* Tabel Kustom */
         .pkji-table-wrap {{
             width: 100%;
             overflow-x: auto;
@@ -434,7 +434,6 @@ def terapkan_tema(is_dark: bool):
             padding-left: 14px;
         }}
 
-        /* Badge Status & LOS */
         span.badge {{
             display: inline-block;
             padding: 3px 10px;
@@ -447,7 +446,6 @@ def terapkan_tema(is_dark: bool):
         span.badge-bad {{ background-color: #FEE2E2 !important; color: #7F1D1D !important; border: 1px solid #FCA5A5; }}
         span.badge-info {{ background-color: #DCECF5 !important; color: #0E3950 !important; border: 1px solid #84B3CE; }}
 
-        /* Kartu Motivasi Mode 4 */
         .quote-box {{
             background-color: {palet['bg_card']};
             border: 1px solid {palet['border']};
@@ -466,6 +464,14 @@ def terapkan_tema(is_dark: bool):
         unsafe_allow_html=True
     )
     return palet
+
+
+def render_kotak_hitungan(baris_list, baris_hasil_index=-1):
+    items_html = []
+    for i, b in enumerate(baris_list):
+        cls = "calc-result" if i == baris_hasil_index or (baris_hasil_index == -1 and i == len(baris_list) - 1) else "calc-line"
+        items_html.append(f'<div class="{cls}">{html_lib.escape(b)}</div>')
+    st.markdown(f'<div class="calc-box">{"".join(items_html)}</div>', unsafe_allow_html=True)
 
 
 def render_tabel_cantik(df: pd.DataFrame, format_cols: dict = None):
@@ -703,81 +709,71 @@ def tampilkan_detail_rumus(nama_rumus, det):
 
     if nama_rumus == "Arus Lalu Lintas (Q)":
         st.latex(r"Q = (N_{MP} \times e_{MP}) + (N_{KB} \times e_{KB}) + (N_{SM} \times e_{SM}) + (N_{KTB} \times e_{KTB})")
-        st.code(
-            f"Q = ({det['MP']} × {det['emp_MP']}) + ({det['KB']} × {det['emp_KB']}) + ({det['SM']} × {det['emp_SM']}) + ({det['KTB']} × {det['emp_KTB']})\n"
-            f"Hasil Akhir: Q = {det['Q_smp']:.2f} smp/jam",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"Q = ({det['MP']} × {det['emp_MP']}) + ({det['KB']} × {det['emp_KB']}) + ({det['SM']} × {det['emp_SM']}) + ({det['KTB']} × {det['emp_KTB']})",
+            f"Hasil Akhir: Q = {det['Q_smp']:.2f} smp/jam"
+        ])
     elif nama_rumus == "Lebar Efektif Pendekat (L_E)":
         st.latex(r"L_E = L - L_{BKiJT}")
-        st.code(
-            f"L_E = {det['L']:.2f} - {det['L_BKiJT']:.2f}\n"
-            f"Hasil Akhir: L_E = {det['L_E']:.2f} m",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"L_E = {det['L']:.2f} - {det['L_BKiJT']:.2f}",
+            f"Hasil Akhir: L_E = {det['L_E']:.2f} m"
+        ])
     elif nama_rumus == "Arus Jenuh Dasar (J_0)":
         st.latex(r"J_0 = 600 \times L_E")
-        st.code(
-            f"J_0 = 600 × {det['L_E']:.2f}\n"
-            f"Hasil Akhir: J_0 = {det['J_0']:.2f} smp/jam hijau",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"J_0 = 600 × {det['L_E']:.2f}",
+            f"Hasil Akhir: J_0 = {det['J_0']:.2f} smp/jam hijau"
+        ])
     elif nama_rumus == "Arus Jenuh Tersesuaikan (J)":
         st.latex(r"J = J_0 \times F_{UK}")
-        st.code(
-            f"J = {det['J_0']:.2f} × {det['F_UK']:.2f}\n"
-            f"Hasil Akhir: J = {det['J']:.2f} smp/jam hijau",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"J = {det['J_0']:.2f} × {det['F_UK']:.2f}",
+            f"Hasil Akhir: J = {det['J']:.2f} smp/jam hijau"
+        ])
     elif nama_rumus == "Kapasitas Pendekat (C)":
         st.latex(r"C = J \times \frac{w_H}{c_s}")
-        st.code(
-            f"C = {det['J']:.2f} × ({det['w_H']:.1f} / {det['c_s']:.1f})\n"
-            f"Hasil Akhir: C = {det['C']:.2f} smp/jam",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"C = {det['J']:.2f} × ({det['w_H']:.1f} / {det['c_s']:.1f})",
+            f"Hasil Akhir: C = {det['C']:.2f} smp/jam"
+        ])
     elif nama_rumus == "Derajat Kejenuhan (DJ)":
         st.latex(r"DJ = \frac{Q}{C}")
-        st.code(
-            f"DJ = {det['Q_smp']:.2f} / {det['C']:.2f}\n"
-            f"Hasil Akhir: DJ = {det['DJ']:.3f}",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"DJ = {det['Q_smp']:.2f} / {det['C']:.2f}",
+            f"Hasil Akhir: DJ = {det['DJ']:.3f}"
+        ])
     elif nama_rumus == "Jumlah Antrian (NQ_total)":
         st.latex(r"NQ_1 = 0{,}25 \times C \left[(DJ - 1) + \sqrt{(DJ - 1)^2 + \frac{8(DJ - 0{,}5)}{C}}\right] \quad (\text{jika } DJ > 0{,}5)")
         st.latex(r"NQ_2 = \frac{1 - (w_H / c_s)}{1 - \min(1;\ DJ \cdot w_H / c_s)} \times \frac{Q}{3600} \times (c_s - w_H)")
         st.latex(r"NQ_{\text{total}} = NQ_1 + NQ_2")
-        st.code(
-            f"NQ_1 = {det['NQ1']:.3f} smp\n"
-            f"NQ_2 = {det['NQ2']:.3f} smp\n"
-            f"Hasil Akhir: NQ_total = {det['NQ1']:.3f} + {det['NQ2']:.3f} = {det['NQ_total']:.2f} smp",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"NQ_1 = {det['NQ1']:.3f} smp",
+            f"NQ_2 = {det['NQ2']:.3f} smp",
+            f"Hasil Akhir: NQ_total = {det['NQ1']:.3f} + {det['NQ2']:.3f} = {det['NQ_total']:.2f} smp"
+        ])
     elif nama_rumus == "Panjang Antrian (PA)":
         st.latex(r"PA = \frac{NQ_{\text{total}} \times 20}{L_E}")
-        st.code(
-            f"PA = ({det['NQ_total']:.2f} × 20) / {det['L_E']:.2f}\n"
-            f"Hasil Akhir: PA = {det['PA']:.1f} meter",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"PA = ({det['NQ_total']:.2f} × 20) / {det['L_E']:.2f}",
+            f"Hasil Akhir: PA = {det['PA']:.1f} meter"
+        ])
     elif nama_rumus == "Rasio Kendaraan Henti (RKH)":
         rasio_h = (det["w_H"] / det["c_s"]) if det["c_s"] > 0 else 0
         penj = max(0.05, 1.0 - min(0.95, det["DJ"] * rasio_h))
         st.latex(r"RKH = 0{,}9 \times \frac{1 - (w_H / c_s)}{1 - \min(1;\ DJ \cdot w_H / c_s)}")
-        st.code(
-            f"RKH = 0.9 × ((1 - {rasio_h:.3f}) / {penj:.3f})\n"
-            f"Hasil Akhir: RKH = {det['RKH']:.3f}",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"RKH = 0.9 × ((1 - {rasio_h:.3f}) / {penj:.3f})",
+            f"Hasil Akhir: RKH = {det['RKH']:.3f}"
+        ])
     elif nama_rumus == "Tundaan Rata-Rata (T_total)":
         st.latex(r"T_{LL} = \frac{0{,}5 \times c_s \times (1 - w_H/c_s)^2}{1 - \min(1;\ DJ \cdot w_H/c_s)} + \frac{NQ_1 \times 3600}{C}")
         st.latex(r"T_G = (1 - RKH) \times 4 + RKH \times 6 \qquad ; \qquad T_{\text{total}} = T_{LL} + T_G")
-        st.code(
-            f"T_LL = {det['T_LL']:.2f} s/smp\n"
-            f"T_G  = {det['T_G']:.2f} s/smp\n"
-            f"Hasil Akhir: T_total = {det['T_LL']:.2f} + {det['T_G']:.2f} = {det['T_total']:.2f} s/smp (LOS: {det['los']})",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"T_LL = {det['T_LL']:.2f} s/smp",
+            f"T_G  = {det['T_G']:.2f} s/smp",
+            f"Hasil Akhir: T_total = {det['T_LL']:.2f} + {det['T_G']:.2f} = {det['T_total']:.2f} s/smp (LOS: {det['los']})"
+        ])
 
 
 def catat_history(identitas_dict, sinyal_dict, pendekat_dict, emp_custom_dict):
@@ -830,7 +826,6 @@ def terapkan_snapshot(snap):
     st.session_state.hasil_pertama_detail = None
 
 
-# Terapkan Tema Aktif
 palet_aktif = terapkan_tema(st.session_state.tema_gelap)
 
 
@@ -1088,7 +1083,7 @@ else:
 
     # ==========================================================
     # SIDEBAR KIRI BAWAH (DI BAWAH CUSTOM EMP): HISTORY & EKSPOR EXCEL
-    # ==========================================
+    # ==========================================================
     st.sidebar.divider()
     st.sidebar.subheader("🕒 History")
     if st.sidebar.button("💾 Simpan Sesi ke History", key="btn_simpan_history", use_container_width=True):
@@ -1514,12 +1509,11 @@ else:
         penj_le_ev = 600.0 * det_ev["F_UK"] * ras_h_ev
         le_targ = (c_targ / penj_le_ev) if penj_le_ev > 0 else det_ev["L_E"]
 
-        st.code(
-            f"[{pendekat_rumus_ev}] C_target = {det_ev['Q_smp']:.1f} / 0.85 = {c_targ:.1f} smp/jam\n"
-            f"  • w_H_target = ({c_targ:.1f} / {det_ev['J']:.1f}) × {det_ev['c_s']:.1f} = {wh_targ:.1f} detik\n"
-            f"  • L_E_target = {c_targ:.1f} / (600 × {det_ev['F_UK']:.2f} × {ras_h_ev:.3f}) = {le_targ:.2f} m",
-            language="text"
-        )
+        render_kotak_hitungan([
+            f"[{pendekat_rumus_ev}] C_target = {det_ev['Q_smp']:.1f} / 0.85 = {c_targ:.1f} smp/jam",
+            f"• w_H_target = ({c_targ:.1f} / {det_ev['J']:.1f}) × {det_ev['c_s']:.1f} = {wh_targ:.1f} detik",
+            f"• L_E_target = {c_targ:.1f} / (600 × {det_ev['F_UK']:.2f} × {ras_h_ev:.3f}) = {le_targ:.2f} m"
+        ], baris_hasil_index=-1)
 
         st.markdown("#### 5. Penjelasan & Masukan Evaluasi")
         ada_perubahan = any(
@@ -1594,7 +1588,6 @@ else:
         })
         render_tabel_cantik(df_los_ref)
 
-        # Motivasi Anti-Burnout di Bagian Paling Bawah Mode 4
         st.markdown(
             f"""
             <div class="quote-box">
