@@ -28,7 +28,8 @@ QUOTES_ANTI_BURNOUT = [
     "Seperti simpang yang butuh waktu hilang agar pergerakan tertib, otakmu juga butuh jeda singkat supaya tetap jernih.",
     "Angka dan rumus hanyalah alat bantu; ketekunanmu memahami prosesnya adalah bekal utama yang nggak akan sia-sia.",
     "Kalau mulai pusing menatap layar dan tabel, menjauh 5 menit dari laptop lalu kembali dengan kepala dingin sering kali mempercepat segalanya.",
-    "Progres kecil yang konsisten mengalahkan kelelahan akibat memforsir diri sekaligus. Kamu sudah melangkah sejauh ini—keren!"
+    "Progres kecil yang konsisten mengalahkan kelelahan akibat memforsir diri sekaligus. Kamu sudah melangkah sejauh ini—keren!",
+    "Satu fase selesai, satu langkah tercapai. Nggak perlu ngebut sampai kehabisan napas—yang penting terus jalan."
 ]
 
 DEFAULT_IDENTITAS = {
@@ -69,12 +70,16 @@ def simpan_riwayat_disk(riwayat_list):
         pass
 
 
+def pilih_quote_berbeda(quote_saat_ini=None):
+    kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_saat_ini] or QUOTES_ANTI_BURNOUT
+    return random.choice(kandidat)
+
+
 # Inisialisasi Session State
 if "quote_sesi_ini" not in st.session_state:
     riwayat_q = muat_riwayat_disk()
     quote_terakhir = riwayat_q[-1].get("last_quote") if riwayat_q else None
-    kandidat = [q for q in QUOTES_ANTI_BURNOUT if q != quote_terakhir] or QUOTES_ANTI_BURNOUT
-    st.session_state.quote_sesi_ini = random.choice(kandidat)
+    st.session_state.quote_sesi_ini = pilih_quote_berbeda(quote_terakhir)
 
 if "tema_gelap" not in st.session_state:
     st.session_state.tema_gelap = False
@@ -130,7 +135,9 @@ if "rumus_terpilih" not in st.session_state:
 
 
 # ==========================================
-# TEMA WARNA & BACKGROUND TRANSPORTASI HALUS
+# TEMA WARNA & FRAME TRANSPORTASI HALUS
+# Terang: Merino (#F5EEDD), Rock Blue (#84B3CE), Venice Blue (#16587B)
+# Gelap: Navy
 # ==========================================
 def terapkan_tema(is_dark: bool):
     if is_dark:
@@ -159,8 +166,10 @@ def terapkan_tema(is_dark: bool):
             "chart_bg": "#0E1A38",
             "chart_text": "#F5EEDD",
             "chart_grid": "#2A4785",
-            "road_line": "rgba(132, 179, 206, 0.045)",
-            "road_dash": "rgba(245, 238, 221, 0.04)"
+            "road_line": "rgba(132, 179, 206, 0.04)",
+            "road_dash": "rgba(245, 238, 221, 0.035)",
+            "frame_stroke": "rgba(132, 179, 206, 0.12)",
+            "frame_road": "rgba(132, 179, 206, 0.08)"
         }
     else:
         palet = {
@@ -188,8 +197,10 @@ def terapkan_tema(is_dark: bool):
             "chart_bg": "#FFFFFF",
             "chart_text": "#0E3950",
             "chart_grid": "#9BBFD4",
-            "road_line": "rgba(22, 88, 123, 0.05)",
-            "road_dash": "rgba(132, 179, 206, 0.14)"
+            "road_line": "rgba(22, 88, 123, 0.045)",
+            "road_dash": "rgba(132, 179, 206, 0.12)",
+            "frame_stroke": "rgba(22, 88, 123, 0.13)",
+            "frame_road": "rgba(22, 88, 123, 0.09)"
         }
 
     st.markdown(
@@ -206,6 +217,75 @@ def terapkan_tema(is_dark: bool):
             color: {palet['text_main']} !important;
         }}
 
+        [data-testid="stAppViewContainer"] > .main {{
+            position: relative;
+            z-index: 1;
+        }}
+
+        .transport-frame-layer {{
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }}
+        .transport-frame-border {{
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            bottom: 12px;
+            left: 12px;
+            border: 1.5px dashed {palet['frame_road']};
+            border-radius: 18px;
+            pointer-events: none;
+        }}
+        .tf-item {{
+            position: fixed;
+            pointer-events: none;
+        }}
+        .tf-car-tl {{
+            top: 22px;
+            left: 24px;
+            width: 84px;
+            height: 44px;
+        }}
+        .tf-car-tr {{
+            top: 24px;
+            right: 24px;
+            width: 84px;
+            height: 44px;
+        }}
+        .tf-sign-bl {{
+            bottom: 20px;
+            left: 24px;
+            width: 68px;
+            height: 68px;
+        }}
+        .tf-car-br {{
+            bottom: 22px;
+            right: 24px;
+            width: 92px;
+            height: 46px;
+        }}
+        .tf-road-bottom {{
+            left: 105px;
+            right: 126px;
+            bottom: 18px;
+            height: 18px;
+            border-top: 1.5px solid {palet['frame_road']};
+            border-bottom: 1.5px solid {palet['frame_road']};
+            background-image: repeating-linear-gradient(
+                to right,
+                {palet['frame_stroke']} 0px,
+                {palet['frame_stroke']} 18px,
+                transparent 18px,
+                transparent 34px
+            );
+            background-position: left center;
+            background-size: 34px 2px;
+            background-repeat: repeat-x;
+        }}
+
         [data-testid="stHeader"] {{
             background-color: transparent !important;
         }}
@@ -213,6 +293,7 @@ def terapkan_tema(is_dark: bool):
         [data-testid="stSidebar"], [data-testid="stSidebar"] > div {{
             background-color: {palet['bg_secondary']} !important;
             border-right: 2px solid {palet['border']} !important;
+            z-index: 2;
         }}
 
         .stApp p, .stApp label, .stApp li,
@@ -227,7 +308,6 @@ def terapkan_tema(is_dark: bool):
             color: {palet['text_main']} !important;
         }}
 
-        /* Kotak Substitusi Hitungan Kustom (anti-samar di semua tema) */
         .calc-box {{
             background-color: {palet['bg_calc']} !important;
             border: 1.5px solid {palet['border']} !important;
@@ -249,7 +329,6 @@ def terapkan_tema(is_dark: bool):
             font-weight: 800 !important;
         }}
 
-        /* Pil Delta pada st.metric */
         [data-testid="stMetricDelta"] {{
             background-color: #E2E8F0 !important;
             border-radius: 999px !important;
@@ -267,7 +346,6 @@ def terapkan_tema(is_dark: bool):
             opacity: 1 !important;
         }}
 
-        /* Input & Selectbox: cegah border/outline merah marun */
         [data-testid="stTextInput"] input,
         [data-testid="stNumberInput"] input,
         [data-testid="stDateInput"] input,
@@ -460,6 +538,36 @@ def terapkan_tema(is_dark: bool):
             margin: 0;
         }}
         </style>
+
+        <div class="transport-frame-layer" aria-hidden="true">
+            <div class="transport-frame-border"></div>
+            <div class="tf-road-bottom"></div>
+
+            <svg class="tf-item tf-car-tl" viewBox="0 0 120 60" fill="none">
+                <path d="M18 38L26 20C28 16 32 14 36 14H74C78 14 82 16 85 20L98 32H106C110 32 113 35 113 39V44H102C101 38 96 34 90 34C84 34 79 38 78 44H42C41 38 36 34 30 34C24 34 19 38 18 44H10V39C10 35 13 33 18 38Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="30" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="90" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <path d="M31 20H72L80 31H26L31 20Z" stroke="{palet['frame_road']}" stroke-width="1.6" stroke-linejoin="round"/>
+            </svg>
+
+            <svg class="tf-item tf-car-tr" viewBox="0 0 120 60" fill="none">
+                <path d="M102 38L94 20C92 16 88 14 84 14H46C42 14 38 16 35 20L22 32H14C10 32 7 35 7 39V44H18C19 38 24 34 30 34C36 34 41 38 42 44H78C79 38 84 34 90 34C96 34 101 38 102 44H110V39C110 35 107 33 102 38Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="30" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="90" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+            </svg>
+
+            <svg class="tf-item tf-sign-bl" viewBox="0 0 80 80" fill="none">
+                <polygon points="40,10 68,38 40,66 12,38" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M40 24V50M32 32L40 24L48 32" stroke="{palet['frame_road']}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+            <svg class="tf-item tf-car-br" viewBox="0 0 130 62" fill="none">
+                <rect x="14" y="16" width="66" height="24" rx="4" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <path d="M80 23H98L110 33V40H80V23Z" stroke="{palet['frame_stroke']}" stroke-width="2.2" stroke-linejoin="round"/>
+                <circle cx="32" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+                <circle cx="96" cy="44" r="7" stroke="{palet['frame_stroke']}" stroke-width="2.2"/>
+            </svg>
+        </div>
         """,
         unsafe_allow_html=True
     )
@@ -662,45 +770,6 @@ def hitung_kinerja_lengkap(
         }
 
     return pd.DataFrame(tabel_rows), c_s, W_HH, detail_per_pendekat
-
-
-def hitung_rekomendasi_pkji(detail_awal, target_dj=0.85):
-    rekom_rows = []
-    for p in PENDEKAT_LIST:
-        det = detail_awal[p]
-        Q = det["Q_smp"]
-        J = det["J"]
-        c_s = det["c_s"]
-        w_H_awal = det["w_H"]
-        L_BK = det["L_BKiJT"]
-        L_E_awal = det["L_E"]
-        DJ_awal = det["DJ"]
-
-        C_perlu = Q / target_dj if target_dj > 0 else Q
-        w_H_perlu = ((C_perlu / J) * c_s) if J > 0 else w_H_awal
-        w_H_usulan = max(5.0, round(w_H_perlu, 1))
-
-        rasio_h = (w_H_awal / c_s) if c_s > 0 else 0.0
-        penyebut_le = 600.0 * det["F_UK"] * rasio_h
-        L_E_perlu = (C_perlu / penyebut_le) if penyebut_le > 0 else L_E_awal
-        L_usulan = max(2.0, round(L_E_perlu + L_BK, 2))
-
-        if DJ_awal > target_dj:
-            tindakan = f"Perlu perbaikan: naikkan w_H ke ~{w_H_usulan:.1f} s atau L ke ~{L_usulan:.2f} m"
-        else:
-            tindakan = f"Sudah memenuhi batas DJ ≤ {target_dj:.2f}"
-
-        rekom_rows.append({
-            "Pendekat": p,
-            "Q (smp/jam)": round(Q, 1),
-            "DJ Awal": round(DJ_awal, 3),
-            "w_H Awal (s)": round(w_H_awal, 1),
-            "w_H Rekomendasi (s)": w_H_usulan,
-            "L_E Awal (m)": round(L_E_awal, 2),
-            "L Rekomendasi (m)": L_usulan,
-            "Evaluasi & Saran PKJI": tindakan
-        })
-    return pd.DataFrame(rekom_rows)
 
 
 def tampilkan_detail_rumus(nama_rumus, det):
@@ -1083,7 +1152,7 @@ else:
 
     # ==========================================================
     # SIDEBAR KIRI BAWAH (DI BAWAH CUSTOM EMP): HISTORY & EKSPOR EXCEL
-    # ==========================================================
+    # ==========================================
     st.sidebar.divider()
     st.sidebar.subheader("🕒 History")
     if st.sidebar.button("💾 Simpan Sesi ke History", key="btn_simpan_history", use_container_width=True):
@@ -1315,14 +1384,13 @@ else:
         )
 
     # ==========================================================
-    # MODE 3: PERBANDINGAN + PERBAIKAN & EVALUASI RUMUS PKJI
+    # MODE 3: PERBANDINGAN & EVALUASI PARAMETER
     # ==========================================================
     elif mode_pilihan == "Mode 3: Perbandingan & Evaluasi":
         st.subheader("⚖️ Mode 3 — Perbandingan Hasil Hitungan Pertama & Evaluasi")
-        st.caption("Atur parameter evaluasi per pendekat dan tinjau perhitungan perbaikan menurut rumus PKJI.")
+        st.caption("Atur parameter evaluasi per pendekat dan bandingkan hasilnya terhadap hitungan pertama.")
 
         df_pertama = st.session_state.hasil_pertama_df.copy()
-        df_rekom = hitung_rekomendasi_pkji(detail_awal, target_dj=0.85)
 
         if "eval_wh_map" not in st.session_state:
             st.session_state.eval_wh_map = {p: float(data_input[p]["w_H"]) for p in PENDEKAT_LIST}
@@ -1337,7 +1405,7 @@ else:
             st.session_state.setdefault(f"ev_bk_{p}", float(st.session_state.eval_bk_map[p]))
 
         st.markdown("#### 1. Preset & Pengaturan Parameter Evaluasi")
-        p_col1, p_col2, p_col3, p_col4 = st.columns([2, 2, 2, 1])
+        p_col1, p_col2, p_col3 = st.columns([2.2, 2.2, 1.2])
         pendekat_dj_max = df_pertama.loc[df_pertama["DJ"].idxmax(), "Pendekat"]
 
         with p_col1:
@@ -1355,18 +1423,6 @@ else:
                 st.rerun()
 
         with p_col3:
-            if st.button("✨ Terapkan Rekomendasi PKJI", key="btn_terapkan_rekom_atas", use_container_width=True):
-                for _, r_row in df_rekom.iterrows():
-                    p_name = r_row["Pendekat"]
-                    wh_rek = float(r_row["w_H Rekomendasi (s)"])
-                    l_rek = float(r_row["L Rekomendasi (m)"])
-                    st.session_state.eval_wh_map[p_name] = wh_rek
-                    st.session_state.eval_l_map[p_name] = l_rek
-                    st.session_state[f"ev_wh_{p_name}"] = wh_rek
-                    st.session_state[f"ev_l_{p_name}"] = l_rek
-                st.rerun()
-
-        with p_col4:
             if st.button("🔄 Reset", key="pre_reset_ev", use_container_width=True):
                 for p in PENDEKAT_LIST:
                     wh_0 = float(data_input[p]["w_H"])
@@ -1484,38 +1540,7 @@ else:
                 format_cols=format_tabel_lengkap
             )
 
-        st.markdown("#### 4. Perbaikan & Evaluasi Menurut Perhitungan PKJI dan Rumus")
-        st.caption("Berdasarkan prinsip kapasitas PKJI (C = J × w_H / c_s dan DJ = Q / C ≤ 0,85), berikut perhitungan target perbaikan per pendekat:")
-
-        st.latex(r"C_{\text{target}} = \frac{Q}{0{,}85} \qquad ; \qquad w_{H,\text{target}} = \frac{C_{\text{target}}}{J} \times c_s \qquad ; \qquad L_{E,\text{target}} = \frac{C_{\text{target}}}{600 \times F_{UK} \times (w_H / c_s)}")
-
-        render_tabel_cantik(
-            df_rekom,
-            format_cols={
-                "Q (smp/jam)": "{:,.1f}",
-                "DJ Awal": "{:.3f}",
-                "w_H Awal (s)": "{:.1f}",
-                "w_H Rekomendasi (s)": "{:.1f}",
-                "L_E Awal (m)": "{:.2f}",
-                "L Rekomendasi (m)": "{:.2f}"
-            }
-        )
-
-        pendekat_rumus_ev = st.selectbox("Pilih Pendekat untuk Melihat Substitusi Rumus Perbaikan PKJI:", PENDEKAT_LIST, key="ev_rumus_p")
-        det_ev = detail_awal[pendekat_rumus_ev]
-        c_targ = det_ev["Q_smp"] / 0.85
-        wh_targ = ((c_targ / det_ev["J"]) * det_ev["c_s"]) if det_ev["J"] > 0 else det_ev["w_H"]
-        ras_h_ev = (det_ev["w_H"] / det_ev["c_s"]) if det_ev["c_s"] > 0 else 0.0
-        penj_le_ev = 600.0 * det_ev["F_UK"] * ras_h_ev
-        le_targ = (c_targ / penj_le_ev) if penj_le_ev > 0 else det_ev["L_E"]
-
-        render_kotak_hitungan([
-            f"[{pendekat_rumus_ev}] C_target = {det_ev['Q_smp']:.1f} / 0.85 = {c_targ:.1f} smp/jam",
-            f"• w_H_target = ({c_targ:.1f} / {det_ev['J']:.1f}) × {det_ev['c_s']:.1f} = {wh_targ:.1f} detik",
-            f"• L_E_target = {c_targ:.1f} / (600 × {det_ev['F_UK']:.2f} × {ras_h_ev:.3f}) = {le_targ:.2f} m"
-        ], baris_hasil_index=-1)
-
-        st.markdown("#### 5. Penjelasan & Masukan Evaluasi")
+        st.markdown("#### 4. Penjelasan & Masukan Evaluasi")
         ada_perubahan = any(
             abs(st.session_state.eval_wh_map[p] - data_input[p]["w_H"]) > 1e-9
             or abs(st.session_state.eval_l_map[p] - data_input[p]["L"]) > 1e-9
@@ -1525,7 +1550,7 @@ else:
 
         if not ada_perubahan:
             st.info(
-                "Belum ada perubahan parameter evaluasi. Gunakan tombol preset, terapkan rekomendasi PKJI di atas, atau ubah nilai **w_H**, **L**, atau **L_BKiJT** per pendekat."
+                "Belum ada perubahan parameter evaluasi. Gunakan tombol preset atau ubah nilai **w_H**, **L**, atau **L_BKiJT** per pendekat."
             )
         else:
             if delta_dj < 0 and delta_pa < 0 and delta_t < 0:
@@ -1588,11 +1613,18 @@ else:
         })
         render_tabel_cantik(df_los_ref)
 
-        st.markdown(
-            f"""
-            <div class="quote-box">
-                <p>🌱 <strong>Catatan Penyemangat:</strong> “{html_lib.escape(st.session_state.quote_sesi_ini)}”</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        col_q_box, col_q_btn = st.columns([5.2, 1.3])
+        with col_q_box:
+            st.markdown(
+                f"""
+                <div class="quote-box">
+                    <p>🌱 <strong>Catatan Penyemangat:</strong> “{html_lib.escape(st.session_state.quote_sesi_ini)}”</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with col_q_btn:
+            st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Ganti Quote", key="btn_ganti_quote_m4", use_container_width=True):
+                st.session_state.quote_sesi_ini = pilih_quote_berbeda(st.session_state.quote_sesi_ini)
+                st.rerun()
